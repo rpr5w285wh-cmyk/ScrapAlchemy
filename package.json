@@ -3,7 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "description": "Companion app for The Alchemist's Scrapbook by M.G. Frank",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
