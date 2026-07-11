@@ -36,7 +36,7 @@ const NAMES = [
   "normIngredient", "slotHasOption", "bestSlotForIngredient", "computeInjections",
   "computeInitialPicksFromScraps", "computeInitialPicksFromIngredients", "computeInitialPicks",
   "defaultTabOrder", "movableRange", "moveGroup", "moveTabInGroup", "flattenTabOrder", "isValidTabOrder",
-  "enrichScrap", "enrichScraps",
+  "enrichScrap", "enrichScraps", "templatesForScrapType",
 ];
 // Also need the TEXTURE_CAVEATS / EXCLUSIONS data arrays textureCaveatFor closes over.
 function extractConst(name) {
@@ -811,6 +811,49 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
     !builderUsable.some(s => s.id === "1"));
   check("builder-usable: customs sort last",
     builderUsable.length === 0 || builderUsable[builderUsable.length - 1].sortKey === Infinity || builderUsable.every(s => s.sortKey !== Infinity));
+})();
+
+// ---- 25. Template-name referential integrity --------------------------------------
+// Every name that can reach TemplateModal must resolve to real content, so the
+// framework fallback ("walkthrough isn't in the app yet") stays unreachable. When a
+// check here fails, it names exactly the walkthrough the author needs to write (or
+// the reference to fix) — it is not a harness bug.
+(function () {
+  const evalConst = (name) =>
+    eval(extractConst(name).replace(new RegExp(`^const ${name}\\s*=\\s*`), ""));
+  const templates = evalConst("TEMPLATES");
+  const names = new Set(templates.map(t => t.name));
+  check("tplint: TEMPLATES is non-empty", templates.length > 0);
+
+  // Object-literal keys (TEMPLATE_DETAILS etc.) sit two-space indented and
+  // double-quoted between their const and the next one.
+  const keysOf = (constName, nextConst) => {
+    const start = src.indexOf(`const ${constName}`);
+    const end = src.indexOf(`const ${nextConst}`);
+    return [...src.slice(start, end).matchAll(/^  "([^"]+)": \{/gm)].map(m => m[1]);
+  };
+  const detailKeys = keysOf("TEMPLATE_DETAILS", "BUILDER_RECIPES");
+  check("tplint: TEMPLATE_DETAILS keys extracted", detailKeys.length > 0);
+  for (const t of templates)
+    check(`tplint: "${t.name}" has a TEMPLATE_DETAILS walkthrough`, detailKeys.includes(t.name));
+  for (const k of detailKeys)
+    check(`tplint: details key "${k}" is a known template`, names.has(k));
+
+  // Storage cards' template actions must open a real template.
+  for (const card of evalConst("STORAGE_GUIDE"))
+    if (card.template) check(`tplint: storage "${card.name}" → known template`, names.has(card.template));
+
+  // Past-prime "use them up" suggestions only ever emit known template names.
+  for (const st of evalConst("SCRAP_TYPES"))
+    for (const n of F.templatesForScrapType(st.name))
+      check(`tplint: use-up suggestion "${n}" (for ${st.name}) is a known template`, names.has(n));
+  for (const n of F.templatesForScrapType("Something Unrecognized"))
+    check(`tplint: use-up fallback "${n}" is a known template`, names.has(n));
+
+  // Deep-dive usedIn references (double-quoted in source, so JSON.parse is safe).
+  for (const m of src.matchAll(/usedIn:\s*\[([^\]]*)\]/g))
+    for (const n of JSON.parse("[" + m[1] + "]"))
+      check(`tplint: usedIn "${n}" is a known template`, names.has(n));
 })();
 
 // ---- report ---------------------------------------------------------------------

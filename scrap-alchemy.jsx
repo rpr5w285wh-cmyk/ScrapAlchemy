@@ -3418,6 +3418,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
   const detail = TEMPLATE_DETAILS[name];
   const builder = BUILDER_RECIPES[name];
   const story = TEMPLATE_STORIES[name];
+  const tpl = TEMPLATES.find(t => t.name === name);
   // If scraps or ingredients were seeded, default to builder mode (user is clearly trying to build).
   // Otherwise honor explicit initialMode or fall back to framework.
   const computeInitialMode = () => {
@@ -3529,7 +3530,36 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
                   <div className="text-xs uppercase tracking-widest text-[var(--accent)] mb-1">{part.label}</div>
                   <LinkedProse text={part.text} onOpenDeepDive={openDeepDive} className="text-sm text-[var(--ink)] leading-relaxed" />
                 </div>
-              )) : <p className="italic text-[var(--ink-soft)]">Walkthrough coming soon for this template.</p>}
+              )) : (
+                <div className="space-y-4">
+                  {tpl ? (
+                    <>
+                      <p className="text-xs uppercase tracking-widest text-[var(--accent)]">{tpl.tagline}</p>
+                      <LinkedProse text={tpl.blurb} onOpenDeepDive={openDeepDive} className="text-sm text-[var(--ink)] leading-relaxed" />
+                    </>
+                  ) : (
+                    <p className="text-sm italic text-[var(--ink-soft)]">This template's step-by-step walkthrough isn't in the app yet.</p>
+                  )}
+                  {builder && (
+                    <button
+                      onClick={() => setMode("builder")}
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Build mine →
+                    </button>
+                  )}
+                  {story && (
+                    <button
+                      onClick={() => setMode("story")}
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                    >
+                      <Quote className="w-3.5 h-3.5" />
+                      Read the story →
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
 
