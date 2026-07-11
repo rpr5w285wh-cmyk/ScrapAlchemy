@@ -37,6 +37,7 @@ const NAMES = [
   "computeInitialPicksFromScraps", "computeInitialPicksFromIngredients", "computeInitialPicks",
   "defaultTabOrder", "movableRange", "moveGroup", "moveTabInGroup", "flattenTabOrder", "isValidTabOrder",
   "enrichScrap", "enrichScraps", "templatesForScrapType",
+  "isConfiguredLink", "tipAmounts",
 ];
 // Also need the TEXTURE_CAVEATS / EXCLUSIONS data arrays textureCaveatFor closes over.
 function extractConst(name) {
@@ -811,6 +812,30 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
     !builderUsable.some(s => s.id === "1"));
   check("builder-usable: customs sort last",
     builderUsable.length === 0 || builderUsable[builderUsable.length - 1].sortKey === Infinity || builderUsable.every(s => s.sortKey !== Infinity));
+})();
+
+// ---- 23. External-link configuration guard ----------------------------------------
+// Support actions and the review prompt render only for real, filled-in links.
+// null/placeholder values must read as "not configured" so no dead button ships.
+(function () {
+  check("links: null not configured", F.isConfiguredLink(null) === false);
+  check("links: undefined not configured", F.isConfiguredLink(undefined) === false);
+  check("links: empty/whitespace not configured", F.isConfiguredLink("  ") === false);
+  check("links: old tip stub rejected", F.isConfiguredLink("https://example.com/tip?amount=5") === false);
+  check("links: placeholder ASIN rejected", F.isConfiguredLink("https://www.amazon.com/dp/your-asin") === false);
+  check("links: http (non-https) rejected", F.isConfiguredLink("http://foo.com") === false);
+  check("links: non-string rejected", F.isConfiguredLink(42) === false);
+  check("links: real stripe link accepted", F.isConfiguredLink("https://buy.stripe.com/abc123") === true);
+  check("links: real amazon review link accepted", F.isConfiguredLink("https://www.amazon.com/review/create-review?asin=B0ABCDEF12") === true);
+  check("tips: null → no amounts", F.tipAmounts(null).length === 0);
+  check("tips: empty object → no amounts", F.tipAmounts({}).length === 0);
+  check("tips: sorted numerically", JSON.stringify(F.tipAmounts({ 10: "https://x.co/a", 3: "https://x.co/b", 5: "https://x.co/c" })) === "[3,5,10]");
+  check("tips: unconfigured amount dropped", JSON.stringify(F.tipAmounts({ 3: "https://x.co/a", 5: null })) === "[3]");
+  check("tips: non-positive amount dropped", F.tipAmounts({ "-3": "https://x.co/a", 0: "https://x.co/b" }).length === 0);
+  // Source-level regression guard: the placeholder URLs must never reappear as
+  // live values in the jsx (the config comments spell the patterns differently).
+  check("links: no example.com tip stub in source", !src.includes("example.com/tip"));
+  check("links: no placeholder-ASIN url in source", !src.includes("amazon.com/dp/your-asin"));
 })();
 
 // ---- 25. Template-name referential integrity --------------------------------------

@@ -2,6 +2,43 @@ import { useState, useMemo, useEffect, useRef, Fragment } from "react";
 import { BookOpen, Clock, Sparkles, ChefHat, ArrowRight, X, Check, Flame, Snowflake, AlertTriangle, Archive, Plus, Trash2, Wand2, FileText, Quote, Plus as PlusIcon, Minus, BookMarked, Share2, Download, Copy, Heart, Moon, Sun, Monitor, Type, Settings, SlidersHorizontal, ChevronDown, ChevronLeft, ArrowUpDown, ListFilter, Refrigerator, Home as HomeIcon } from "lucide-react";
 
 
+// ============ EXTERNAL LINKS (author: fill these in before launch) ============
+// null = not configured yet. Anything left null stays HIDDEN: the Support tab only
+// renders actions whose links exist, and the review prompt never fires without a
+// real review link. Fill a value in and the action appears — no other code changes.
+const EXTERNAL_LINKS = {
+  // Amazon "write a review" page for the book, with the real ASIN, e.g.
+  // "https://www.amazon.com/review/create-review?asin=XXXXXXXXXX"
+  amazonReview: null,
+  // Amazon product page for gifting, e.g. "https://www.amazon.com/dp/XXXXXXXXXX"
+  amazonBook: null,
+  // Tip links (Stripe payment links / Ko-fi / Buy Me a Coffee), one per amount, e.g.
+  // { 3: "https://buy.stripe.com/aaa", 5: "https://buy.stripe.com/bbb", 10: "..." }
+  tips: null,
+  // Where the app lives (used in the share message).
+  appUrl: "https://www.mgfrankbooks.com",
+};
+
+// True only for a real, filled-in link — not null/empty, not one of the placeholder
+// patterns that used to ship ("example.com", "your-asin"), and https only.
+function isConfiguredLink(url) {
+  if (typeof url !== "string") return false;
+  const u = url.trim();
+  if (!u) return false;
+  if (/example\.com|your-asin/i.test(u)) return false;
+  return /^https:\/\//.test(u);
+}
+
+// Sorted numeric tip amounts whose links are actually configured.
+function tipAmounts(tips) {
+  if (!tips) return [];
+  return Object.keys(tips)
+    .filter(k => isConfiguredLink(tips[k]))
+    .map(Number)
+    .filter(n => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+}
+
 // ============ DATA (drawn from the book) ============
 
 const SUBSTITUTIONS = {
@@ -1811,7 +1848,7 @@ const TAB_NOTES = {
   scrapbook: "your saved discoveries and notes",
   subs:      "swap for the role, not the name",
   storage:   "how long things keep",
-  support:   "review, tip, or gift the book",
+  support:   "share or support the book",
 };
 
 // A clean deep copy of the default order (group list, each with its tab list).
@@ -5499,6 +5536,9 @@ function LinkedProse({ text, onOpenDeepDive, onOpenTemplate, className = "" }) {
 
 function Support({ openShareApp, engagement }) {
   const [tipState, setTipState] = useState("idle"); // idle | thanks
+  const reviewOk = isConfiguredLink(EXTERNAL_LINKS.amazonReview);
+  const giftOk = isConfiguredLink(EXTERNAL_LINKS.amazonBook);
+  const amounts = tipAmounts(EXTERNAL_LINKS.tips);
 
   // Compose a friendly summary of the user's engagement so the page feels personalized
   const usage = useMemo(() => {
@@ -5511,9 +5551,7 @@ function Support({ openShareApp, engagement }) {
   }, [engagement]);
 
   const handleTip = (amount) => {
-    // Placeholder: in production, replace with a real Stripe payment link
-    const stripeUrl = `https://example.com/tip?amount=${amount}`;
-    window.open(stripeUrl, "_blank", "noopener");
+    window.open(EXTERNAL_LINKS.tips[amount], "_blank", "noopener");
     setTipState("thanks");
     setTimeout(() => setTipState("idle"), 4000);
   };
@@ -5524,7 +5562,7 @@ function Support({ openShareApp, engagement }) {
         <h3 className="font-display text-2xl text-[var(--ink)] mb-1">Support Scrap Alchemy</h3>
         <div className="h-1 w-12 mb-2" style={{ backgroundColor: "var(--spark)" }} />
         <p className="text-sm text-[var(--ink-soft)] italic">
-          If this app has helped you cook with confidence, here are three ways to give back. Just being here is support enough — anything beyond that is a generous bonus.
+          If this app has helped you cook with confidence, here are a few ways to give back. Just being here is support enough — anything beyond that is a generous bonus.
         </p>
       </div>
 
@@ -5537,7 +5575,8 @@ function Support({ openShareApp, engagement }) {
 
       {/* Three paths */}
       <div className="space-y-4">
-        {/* Path 1: Leave a review */}
+        {/* Path 1: Leave a review — only when a real review link is configured */}
+        {reviewOk && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
             <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">★</div>
@@ -5550,15 +5589,17 @@ function Support({ openShareApp, engagement }) {
             A one-line review on Amazon takes 30 seconds and helps other home cooks discover the book. This is the single best thing you can do.
           </p>
           <button
-            onClick={() => window.open("https://www.amazon.com/review/create-review", "_blank", "noopener")}
+            onClick={() => window.open(EXTERNAL_LINKS.amazonReview, "_blank", "noopener")}
             className="w-full px-4 py-2.5 text-sm uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition"
             style={{ backgroundColor: "var(--spark)", color: "var(--on-spark)" }}
           >
             ★ Review on Amazon
           </button>
         </div>
+        )}
 
-        {/* Path 2: Tip a coffee */}
+        {/* Path 2: Tip a coffee — only the amounts with configured payment links */}
+        {amounts.length > 0 && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
             <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">☕</div>
@@ -5576,7 +5617,7 @@ function Support({ openShareApp, engagement }) {
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              {[3, 5, 10].map(amount => (
+              {amounts.map(amount => (
                 <button
                   key={amount}
                   onClick={() => handleTip(amount)}
@@ -5589,8 +5630,10 @@ function Support({ openShareApp, engagement }) {
             </div>
           )}
         </div>
+        )}
 
-        {/* Path 3: Buy for a friend */}
+        {/* Path 3: Buy for a friend — only when the book's product page is configured */}
+        {giftOk && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
             <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">📖</div>
@@ -5603,13 +5646,14 @@ function Support({ openShareApp, engagement }) {
             Know a home cook, a new homeowner, a parent figuring out family meals? The book makes a thoughtful gift — and helps the work continue.
           </p>
           <button
-            onClick={() => window.open("https://www.amazon.com/dp/your-asin", "_blank", "noopener")}
+            onClick={() => window.open(EXTERNAL_LINKS.amazonBook, "_blank", "noopener")}
             className="w-full px-4 py-2.5 text-sm uppercase tracking-widest border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] font-bold flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--surface)" }}
           >
             📖 Gift on Amazon
           </button>
         </div>
+        )}
 
         {/* Path 4 (bonus): Tell a friend */}
         {openShareApp && (
@@ -6802,7 +6846,7 @@ function ShareAppModal({ onClose, incModal, decModal }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const APP_URL = "https://www.mgfrankbooks.com"; // Replace with real URL when deployed
+  const APP_URL = EXTERNAL_LINKS.appUrl;
   const SHARE_TEXT = `I've been using this kitchen app from a great cookbook — Scrap Alchemy by mg frank. It teaches you how to cook from what you have. Thought you'd like it: ${APP_URL}`;
 
   const handleNativeShare = async () => {
@@ -7369,6 +7413,9 @@ export default function App() {
       : 0;
 
     const earned = nextEarnedPrompt(engagement, daysInstalled);
+    // The review prompt has nowhere to send people until the real review link is
+    // configured — hold it (the earn conditions persist, so it fires once it is).
+    if (earned === "review" && !isConfiguredLink(EXTERNAL_LINKS.amazonReview)) return;
     if (earned) setPendingPrompt(earned);
   }, [engagement, engagementLoaded, activePrompt, pendingPrompt, promptShownThisSession]);
 
@@ -7392,8 +7439,7 @@ export default function App() {
   const dismissPrompt = (action) => {
     if (activePrompt === "review") {
       if (action === "act") {
-        // Open Amazon review page (replace ASIN with the real one when published)
-        window.open("https://www.amazon.com/review/create-review", "_blank");
+        window.open(EXTERNAL_LINKS.amazonReview, "_blank");
       }
       setEngagement(prev => ({
         ...prev,
