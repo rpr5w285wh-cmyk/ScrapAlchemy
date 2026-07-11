@@ -1047,7 +1047,7 @@ const BUILDER_RECIPES = {
         label: "The Crunch",
         ratio: 1,
         unit: "handful",
-        helpText: "Add contrast — something crunchy",
+        helpText: "Add contrast with something crunchy",
         options: [
           { name: "Toasted nuts", note: "Rich, nutty crunch", overrideAmount: "A handful" },
           { name: "Croutons", note: "Even slightly burnt ones, crumbled", overrideAmount: "A handful" },
@@ -1079,7 +1079,7 @@ const BUILDER_RECIPES = {
         options: [
           { name: "Cold salsa on a hot base", note: "A scoop of cold salsa on hot fish", overrideAmount: "—" },
           { name: "Warm protein over a cool salad", note: "Warm grilled meatballs sliced over a cool salad", overrideAmount: "—" },
-          { name: "Skip — serve it all warm", note: "Contrast is a question, not a rule", overrideAmount: "—" },
+          { name: "Skip", note: "Serve it all warm", overrideAmount: "—" },
         ],
       },
       {
@@ -1090,7 +1090,7 @@ const BUILDER_RECIPES = {
         helpText: "Finish with a burst",
         options: [
           { name: "Infused vinegar from your pantry", note: "Where preserved items earn their keep", overrideAmount: "A splash" },
-          { name: "Savory relish", note: "A spoonful of preserved flavor", overrideAmount: "A spoonful" },
+          { name: "Savory relish", note: "Straight from a jar you made", overrideAmount: "A spoonful" },
           { name: "Citrus salt", note: "A sprinkle of brightness", overrideAmount: "A sprinkle" },
           { name: "Squeeze of lemon", note: "Bright citrus", overrideAmount: "1/2 lemon" },
           { name: "Chopped parsley or chives", note: "Bright, herbal", overrideAmount: "A scattering" },
@@ -1100,11 +1100,11 @@ const BUILDER_RECIPES = {
     method: [
       "Start with your centerpiece: a leftover protein, a preserved item from your pantry, or a simple staple.",
       "Add contrast: something crunchy, and something soft or creamy.",
-      "Play hot against cold — the contrast is what makes a plate feel composed instead of flat.",
+      "Play hot against cold. The contrast is what makes a plate feel composed instead of flat.",
       "Finish with a burst of flavor. This is where preserved and fresh items earn their keep.",
       "This isn't a recipe — it's the question to ask of any pile of ingredients: what's my base, where's the texture, can I add temperature contrast, and what lifts it at the end?",
     ],
-    storage: "A composed plate is best eaten now. Store leftover components separately, each by its own time in the Storage & Safety tab. Reheat to 165°F (74°C).",
+    storage: "A composed plate is best eaten now. Store leftover components separately; each keeps on its own clock. The Storage & Safety tab has the times. Reheat to 165°F (74°C).",
   },
   "Stock from Scraps": {
     yield: { default: 1, unit: "pot", label: "About 2 quarts" },
@@ -1117,7 +1117,7 @@ const BUILDER_RECIPES = {
         helpText: "Hearty scraps that release flavor without turning to mush",
         options: [
           { name: "Frozen vegetable scrap bag from your pantry", note: "What this template is FOR", overrideAmount: "The whole bag" },
-          { name: "Onion skins and ends", note: "Deep color and savor" },
+          { name: "Onion skins and ends", note: "Deep color and flavor" },
           { name: "Carrot peels and ends", note: "Sweetness for the pot" },
           { name: "Celery tops", note: "Classic aromatic backbone" },
           { name: "Herb stems", note: "Parsley, thyme, cilantro" },
@@ -1130,7 +1130,7 @@ const BUILDER_RECIPES = {
         label: "The Aromatics",
         ratio: 4,
         unit: "items",
-        helpText: "Add depth — they'll perfume the pot",
+        helpText: "Add depth. They'll perfume the pot",
         options: [
           { name: "Halved onion", note: "Sweet base" },
           { name: "Smashed garlic cloves", note: "Pungent, sharp" },
@@ -1149,7 +1149,7 @@ const BUILDER_RECIPES = {
           { name: "Parmesan rind from your pantry", note: "Drop in, simmer, remove", overrideAmount: "1 rind" },
           { name: "Chicken carcass or bones", note: "Simmer longer with bones", overrideAmount: "1 carcass" },
           { name: "Dried mushrooms", note: "Earthy depth", overrideAmount: "Small handful" },
-          { name: "Skip — vegetables only", note: "A savory, clean foundation", overrideAmount: "—" },
+          { name: "Skip", note: "Vegetables only", overrideAmount: "—" },
         ],
       },
     ],
@@ -1161,7 +1161,7 @@ const BUILDER_RECIPES = {
       "Taste — it should taste like a savory, clean foundation.",
       "Cool quickly in shallow containers. Refrigerate within two hours.",
     ],
-    storage: "Cool quickly in shallow containers. Refrigerate 3–4 days, freeze 2–6 months — in jars, or as cubes for small splashes. Label and date it — your future self is the one who'll use it. Reheat to a rolling boil.",
+    storage: "Cool quickly in shallow containers. Refrigerate 3–4 days, freeze 2–6 months, in jars or as cubes for small splashes. Label and date it — your future self is the one who'll use it. Reheat to a rolling boil.",
   },
 };
 
@@ -3422,11 +3422,11 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
         return (
           <div className="text-center py-6 space-y-3">
             <p className="text-sm italic text-[var(--ink-soft)]">
-              No ingredients match “{query}”. The Builder lists the book's core ingredients — try a simpler word (“pasta”, “greens”, “oil”).
+              No ingredients match “{query}”. The Builder lists the book's core ingredients. Try a broader word (“pasta”, “greens”, “oil”).
             </p>
             {near.length > 0 && (
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Did you mean</span>
+                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Closest match</span>
                 {near.map(item => (
                   <button
                     key={item}
@@ -4971,11 +4971,11 @@ function SubstitutionFinder({ openDeepDive }) {
         return (
           <div className="text-center py-6 space-y-3">
             <p className="text-sm italic text-[var(--ink-soft)]">
-              The book's substitution list doesn't have “{query}”. Substitutions here work by role, not name — ask what the missing ingredient does (salt, fat, acid, or umami), then look up the ingredient that usually does that job.
+              The book's substitution list doesn't have “{query}”. Don't ask “what's another {query}?” Ask what it does in your dish, then look up an ingredient that does the same job.
             </p>
             {near.length > 0 && (
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Did you mean</span>
+                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Closest match</span>
                 {near.map(item => (
                   <button
                     key={item}

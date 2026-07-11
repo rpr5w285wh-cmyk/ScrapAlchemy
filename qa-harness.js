@@ -961,11 +961,15 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
       if (!F.isSkipOption(o.name))
         check(`bldr: stock option "${o.name}" avoids the word "stock"`, !/stock/i.test(o.name));
 
-  // New skip strings are recognized by the shared skip detector.
+  // Every skip-styled option in the new builders is recognized by the shared
+  // detector (data-driven, so renames can't silently break skip exclusivity).
   check("bldr: 'Skip aromatics' is a skip", F.isSkipOption("Skip aromatics"));
-  check("bldr: 'Skip — vegetables only' is a skip", F.isSkipOption("Skip — vegetables only"));
-  check("bldr: 'Skip — serve it all warm' is a skip", F.isSkipOption("Skip — serve it all warm"));
   check("bldr: bare 'Skip' is a skip", F.isSkipOption("Skip"));
+  for (const r of [stock, meal])
+    for (const s of r.slots)
+      for (const o of s.options)
+        if (/^skip/i.test(o.name))
+          check(`bldr: skip option "${o.name}" detected`, F.isSkipOption(o.name));
   check("bldr: aromatics combo detected", F.isComboName("Bay leaves + black peppercorns"));
 
   // Carried-in routing against the real slots.
