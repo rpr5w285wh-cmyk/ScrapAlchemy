@@ -2,6 +2,43 @@ import { useState, useMemo, useEffect, useRef, Fragment } from "react";
 import { BookOpen, Clock, Sparkles, ChefHat, ArrowRight, X, Check, Flame, Snowflake, AlertTriangle, Archive, Plus, Trash2, Wand2, FileText, Quote, Plus as PlusIcon, Minus, BookMarked, Share2, Download, Copy, Heart, Moon, Sun, Monitor, Type, Settings, SlidersHorizontal, ChevronDown, ChevronLeft, ArrowUpDown, ListFilter, Refrigerator, Home as HomeIcon } from "lucide-react";
 
 
+// ============ EXTERNAL LINKS (author: fill these in before launch) ============
+// null = not configured yet. Anything left null stays HIDDEN: the Support tab only
+// renders actions whose links exist, and the review prompt never fires without a
+// real review link. Fill a value in and the action appears — no other code changes.
+const EXTERNAL_LINKS = {
+  // Amazon "write a review" page for the book, with the real ASIN, e.g.
+  // "https://www.amazon.com/review/create-review?asin=XXXXXXXXXX"
+  amazonReview: null,
+  // Amazon product page for gifting, e.g. "https://www.amazon.com/dp/XXXXXXXXXX"
+  amazonBook: null,
+  // Tip links (Stripe payment links / Ko-fi / Buy Me a Coffee), one per amount, e.g.
+  // { 3: "https://buy.stripe.com/aaa", 5: "https://buy.stripe.com/bbb", 10: "..." }
+  tips: null,
+  // Where the app lives (used in the share message).
+  appUrl: "https://www.mgfrankbooks.com",
+};
+
+// True only for a real, filled-in link — not null/empty, not one of the placeholder
+// patterns that used to ship ("example.com", "your-asin"), and https only.
+function isConfiguredLink(url) {
+  if (typeof url !== "string") return false;
+  const u = url.trim();
+  if (!u) return false;
+  if (/example\.com|your-asin/i.test(u)) return false;
+  return /^https:\/\//.test(u);
+}
+
+// Sorted numeric tip amounts whose links are actually configured.
+function tipAmounts(tips) {
+  if (!tips) return [];
+  return Object.keys(tips)
+    .filter(k => isConfiguredLink(tips[k]))
+    .map(Number)
+    .filter(n => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+}
+
 // ============ DATA (drawn from the book) ============
 
 const SUBSTITUTIONS = {
@@ -71,7 +108,7 @@ const STORAGE_GUIDE = [
   { name: "Fresh-Ingredient Salts", category: "Salts", fridge: "1–2 weeks", freezer: "—", note: "Moisture risks mold — keep cold.", dive: "Homemade Salts" },
   { name: "Meat Confit", category: "Compound", fridge: "Up to 1 month", freezer: "—", note: "Keep fully submerged in fat.", template: "Confit Project" },
   { name: "Vegetable/Fruit Confit", category: "Compound", fridge: "Several weeks", freezer: "—", note: "Keep fully submerged in fat.", template: "Confit Project" },
-  { name: "Relishes & Sauces", category: "Compound", fridge: "4–7 days", freezer: "—", note: "Reheat to 165°F (74°C)." },
+  { name: "Relishes & Sauces", category: "Compound", fridge: "4–7 days", freezer: "—", note: "Reheat to 165°F (74°C).", template: "The Alchemist's Meal" },
   { name: "Cooked Meat or Poultry", category: "Leftovers", fridge: "3–4 days", freezer: "2–6 months", template: "Anytime Hash" },
   { name: "Cooked Fish", category: "Leftovers", fridge: "3–4 days", freezer: "4–6 months", template: "Anytime Hash" },
   { name: "Cooked Pasta or Grains", category: "Leftovers", fridge: "3–5 days", freezer: "1–2 months", template: "Pantry Pasta" },
@@ -987,6 +1024,145 @@ const BUILDER_RECIPES = {
     ],
     storage: "Refrigerate 3–4 days, freeze 2–3 months. Tastes even better on day 2.",
   },
+  "The Alchemist's Meal": {
+    yield: { default: 1, unit: "plate", label: "One composed plate" },
+    slots: [
+      {
+        id: "base",
+        label: "The Base",
+        ratio: 1,
+        unit: "centerpiece",
+        helpText: "Start with your centerpiece",
+        options: [
+          { name: "Leftover grilled sausage", note: "A leftover protein", overrideAmount: "The centerpiece" },
+          { name: "Pulled chicken", note: "From last night's roast", overrideAmount: "The centerpiece" },
+          { name: "Diced steak", note: "Rare to medium holds up best", overrideAmount: "The centerpiece" },
+          { name: "Confit from your pantry", note: "From your alchemist's pantry", overrideAmount: "The centerpiece" },
+          { name: "A frozen sauce, thawed", note: "A preserved item from your pantry", overrideAmount: "The centerpiece" },
+          { name: "Cooked grains or beans", note: "A simple staple", overrideAmount: "The centerpiece" },
+        ],
+      },
+      {
+        id: "crunch",
+        label: "The Crunch",
+        ratio: 1,
+        unit: "handful",
+        helpText: "Add contrast with something crunchy",
+        options: [
+          { name: "Toasted nuts", note: "Rich, nutty crunch", overrideAmount: "A handful" },
+          { name: "Croutons", note: "Even slightly burnt ones, crumbled", overrideAmount: "A handful" },
+          { name: "Fried shallots from your pantry", note: "Sweet crunch", overrideAmount: "A scattering" },
+          { name: "Potato chips", note: "Yes, even potato chips", overrideAmount: "A handful" },
+          { name: "Toasted breadcrumbs", note: "Crispy texture", overrideAmount: "A scattering" },
+        ],
+      },
+      {
+        id: "soft",
+        label: "The Soft & Creamy",
+        ratio: 1,
+        unit: "spoonful",
+        helpText: "And something soft or creamy",
+        options: [
+          { name: "A dollop of sour cream", note: "Cooling, creamy", overrideAmount: "A dollop" },
+          { name: "Creamy confit vegetables", note: "From your alchemist's pantry", overrideAmount: "A spoonful" },
+          { name: "A melting cheese", note: "Softens into the base", overrideAmount: "To taste" },
+          { name: "Sliced avocado", note: "Cool, creamy", overrideAmount: "Half an avocado" },
+          { name: "Skip", note: "Let the crunch lead", overrideAmount: "—" },
+        ],
+      },
+      {
+        id: "temperature",
+        label: "The Temperature",
+        ratio: 1,
+        unit: "contrast",
+        helpText: "Play hot against cold",
+        options: [
+          { name: "Cold salsa on a hot base", note: "A scoop of cold salsa on hot fish", overrideAmount: "—" },
+          { name: "Warm protein over a cool salad", note: "Warm grilled meatballs sliced over a cool salad", overrideAmount: "—" },
+          { name: "Skip", note: "Serve it all warm", overrideAmount: "—" },
+        ],
+      },
+      {
+        id: "finish",
+        label: "The Flavor",
+        ratio: 1,
+        unit: "splash",
+        helpText: "Finish with a burst",
+        options: [
+          { name: "Infused vinegar from your pantry", note: "Where preserved items earn their keep", overrideAmount: "A splash" },
+          { name: "Savory relish", note: "Straight from a jar you made", overrideAmount: "A spoonful" },
+          { name: "Citrus salt", note: "A sprinkle of brightness", overrideAmount: "A sprinkle" },
+          { name: "Squeeze of lemon", note: "Bright citrus", overrideAmount: "1/2 lemon" },
+          { name: "Chopped parsley or chives", note: "Bright, herbal", overrideAmount: "A scattering" },
+        ],
+      },
+    ],
+    method: [
+      "Start with your centerpiece: a leftover protein, a preserved item from your pantry, or a simple staple.",
+      "Add contrast: something crunchy, and something soft or creamy.",
+      "Play hot against cold. The contrast is what makes a plate feel composed instead of flat.",
+      "Finish with a burst of flavor. This is where preserved and fresh items earn their keep.",
+      "This isn't a recipe — it's the question to ask of any pile of ingredients: what's my base, where's the texture, can I add temperature contrast, and what lifts it at the end?",
+    ],
+    storage: "A composed plate is best eaten now. Store leftover components separately; each keeps on its own clock. The Storage & Safety tab has the times. Reheat to 165°F (74°C).",
+  },
+  "Stock from Scraps": {
+    yield: { default: 1, unit: "pot", label: "About 2 quarts" },
+    slots: [
+      {
+        id: "scraps",
+        label: "The Scraps",
+        ratio: 8,
+        unit: "cups",
+        helpText: "Hearty scraps that release flavor without turning to mush",
+        options: [
+          { name: "Frozen vegetable scrap bag from your pantry", note: "What this template is FOR", overrideAmount: "The whole bag" },
+          { name: "Onion skins and ends", note: "Deep color and flavor" },
+          { name: "Carrot peels and ends", note: "Sweetness for the pot" },
+          { name: "Celery tops", note: "Classic aromatic backbone" },
+          { name: "Herb stems", note: "Parsley, thyme, cilantro" },
+          { name: "Mushroom stems", note: "Umami-rich" },
+          { name: "Corn cobs", note: "Sweet, summery depth" },
+        ],
+      },
+      {
+        id: "aromatic",
+        label: "The Aromatics",
+        ratio: 4,
+        unit: "items",
+        helpText: "Add depth. They'll perfume the pot",
+        options: [
+          { name: "Halved onion", note: "Sweet base" },
+          { name: "Smashed garlic cloves", note: "Pungent, sharp" },
+          { name: "Bay leaves + black peppercorns", note: "Savory, traditional" },
+          { name: "Sprigs of thyme", note: "Sturdy herbs hold up to the simmer" },
+          { name: "Skip aromatics", note: "Let the scraps lead", overrideAmount: "—" },
+        ],
+      },
+      {
+        id: "depth",
+        label: "The Depth",
+        ratio: 1,
+        unit: "small",
+        helpText: "Turns vegetable stock into something richer",
+        options: [
+          { name: "Parmesan rind from your pantry", note: "Drop in, simmer, remove", overrideAmount: "1 rind" },
+          { name: "Chicken carcass or bones", note: "Simmer longer with bones", overrideAmount: "1 carcass" },
+          { name: "Dried mushrooms", note: "Earthy depth", overrideAmount: "Small handful" },
+          { name: "Skip", note: "Vegetables only", overrideAmount: "—" },
+        ],
+      },
+    ],
+    method: [
+      "Combine scraps, aromatics, and any depth ingredient in your largest pot.",
+      "Cover with cold water, bring to a bare simmer — never a hard boil, which turns stock cloudy and bitter.",
+      "Hold it low for 45 min–1 hour for vegetable stock, longer with bones.",
+      "Pour through a fine sieve, pressing the solids to extract every bit of flavor, then discard (or compost) the spent scraps.",
+      "Taste — it should taste like a savory, clean foundation.",
+      "Cool quickly in shallow containers. Refrigerate within two hours.",
+    ],
+    storage: "Cool quickly in shallow containers. Refrigerate 3–4 days, freeze 2–6 months, in jars or as cubes for small splashes. Label and date it — your future self is the one who'll use it. Reheat to a rolling boil.",
+  },
 };
 
 // Story snippets — pulled from the book to surface alongside templates
@@ -1811,7 +1987,7 @@ const TAB_NOTES = {
   scrapbook: "your saved discoveries and notes",
   subs:      "swap for the role, not the name",
   storage:   "how long things keep",
-  support:   "review, tip, or gift the book",
+  support:   "share or support the book",
 };
 
 // A clean deep copy of the default order (group list, each with its tab list).
@@ -1954,6 +2130,48 @@ const MONTHLY_TEMPLATES = [
 ];
 
 
+
+// Small edit distance (Levenshtein) for typo tolerance in zero-result search
+// suggestions. Inputs are expected lowercase.
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+// Given a query that matched nothing, rank candidate names by closeness so the
+// empty state can offer "did you mean". A candidate scores when any word of it
+// prefix-overlaps the query or sits within a small typo distance. Queries under
+// 3 characters return nothing — too noisy to guess.
+function closestMatches(query, candidates, max = 2) {
+  const q = (query || "").trim().toLowerCase();
+  if (q.length < 3) return [];
+  const scored = [];
+  for (const name of candidates) {
+    const words = String(name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    let best = 0;
+    for (const w of words) {
+      if (w.length >= 3 && (w.startsWith(q) || q.startsWith(w))) { best = Math.max(best, 3); continue; }
+      const tol = q.length >= 6 ? 2 : 1;
+      if (Math.abs(w.length - q.length) <= tol && editDistance(q, w) <= tol) best = Math.max(best, 2);
+    }
+    if (best > 0) scored.push({ name, best });
+  }
+  return scored.sort((a, b) => b.best - a.best).slice(0, max).map(s => s.name);
+}
 
 function matchTemplates(selectedItems) {
   const lower = selectedItems.map(s => s.toLowerCase());
@@ -2399,19 +2617,29 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
 
       {/* No results */}
       {enriched.length > 0 && visible.length === 0 && (
-        <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
-          {query
-            ? `Nothing here matches “${query}”.`
-            : "Nothing matches this filter."}
-          {(query || filterBy !== "all") && (
+        <div className="text-center py-6 space-y-2">
+          <p className="text-sm italic text-[var(--ink-soft)]">
+            {query
+              ? `Nothing here matches “${query}”.`
+              : "Nothing matches this filter."}
+            {(query || filterBy !== "all") && (
+              <button
+                onClick={() => { setQuery(""); setFilterBy("all"); }}
+                className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+              >
+                Clear
+              </button>
+            )}
+          </p>
+          {query && (
             <button
-              onClick={() => { setQuery(""); setFilterBy("all"); }}
-              className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+              onClick={() => setAdding(true)}
+              className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
             >
-              Clear
+              Add “{query}” to your pantry →
             </button>
           )}
-        </p>
+        </div>
       )}
 
       {/* List */}
@@ -2617,6 +2845,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
           onClose={() => setAdding(false)}
           incModal={incModal}
           decModal={decModal}
+          initialTypeQuery={visible.length === 0 ? query.trim() : ""}
         />
       )}
     </div>
@@ -2701,7 +2930,7 @@ function PastPrimeSuggestion({ scrap, onOpenTemplate, onUsedUp, onDiscard }) {
   );
 }
 
-function AddScrapModal({ onAdd, onClose, incModal, decModal }) {
+function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = "" }) {
   const [step, setStep] = useState(1);
   const [type, setType] = useState(null);
   const [location, setLocation] = useState(null);
@@ -2709,7 +2938,7 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal }) {
   const [note, setNote] = useState("");
   const [dateStored, setDateStored] = useState(new Date().toISOString().slice(0, 10));
   const [category, setCategory] = useState("Fats");
-  const [typeQuery, setTypeQuery] = useState("");
+  const [typeQuery, setTypeQuery] = useState(initialTypeQuery);
 
   useEffect(() => {
     if (incModal) incModal();
@@ -3188,11 +3417,43 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
       )}
 
       {/* No search results */}
-      {searchHits && searchHits.length === 0 && (
-        <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
-          No ingredients match “{query}”. You can still tap items in their category, or save anything as a scrap in My Pantry.
-        </p>
-      )}
+      {searchHits && searchHits.length === 0 && (() => {
+        const near = closestMatches(query, Object.values(PANTRY).flat());
+        return (
+          <div className="text-center py-6 space-y-3">
+            <p className="text-sm italic text-[var(--ink-soft)]">
+              No ingredients match “{query}”. The Builder lists the book's core ingredients. Try a broader word (“pasta”, “greens”, “oil”).
+            </p>
+            {near.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Closest match</span>
+                {near.map(item => (
+                  <button
+                    key={item}
+                    onClick={() => { toggle(item); setQuery(""); }}
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] transition"
+                    style={{ backgroundColor: "var(--surface)" }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+            {onTabChange && (
+              <p className="text-sm italic text-[var(--ink-soft)]">
+                Have it anyway? Save it in{" "}
+                <button
+                  onClick={() => onTabChange("pantry")}
+                  className="not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+                >
+                  My Pantry
+                </button>{" "}
+                and it'll appear here under “From your pantry”.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Items */}
       <div className="flex flex-wrap gap-2">
@@ -3418,6 +3679,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
   const detail = TEMPLATE_DETAILS[name];
   const builder = BUILDER_RECIPES[name];
   const story = TEMPLATE_STORIES[name];
+  const tpl = TEMPLATES.find(t => t.name === name);
   // If scraps or ingredients were seeded, default to builder mode (user is clearly trying to build).
   // Otherwise honor explicit initialMode or fall back to framework.
   const computeInitialMode = () => {
@@ -3529,7 +3791,36 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
                   <div className="text-xs uppercase tracking-widest text-[var(--accent)] mb-1">{part.label}</div>
                   <LinkedProse text={part.text} onOpenDeepDive={openDeepDive} className="text-sm text-[var(--ink)] leading-relaxed" />
                 </div>
-              )) : <p className="italic text-[var(--ink-soft)]">Walkthrough coming soon for this template.</p>}
+              )) : (
+                <div className="space-y-4">
+                  {tpl ? (
+                    <>
+                      <p className="text-xs uppercase tracking-widest text-[var(--accent)]">{tpl.tagline}</p>
+                      <LinkedProse text={tpl.blurb} onOpenDeepDive={openDeepDive} className="text-sm text-[var(--ink)] leading-relaxed" />
+                    </>
+                  ) : (
+                    <p className="text-sm italic text-[var(--ink-soft)]">This template's step-by-step walkthrough isn't in the app yet.</p>
+                  )}
+                  {builder && (
+                    <button
+                      onClick={() => setMode("builder")}
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Build mine →
+                    </button>
+                  )}
+                  {story && (
+                    <button
+                      onClick={() => setMode("story")}
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                    >
+                      <Quote className="w-3.5 h-3.5" />
+                      Read the story →
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -4673,6 +4964,42 @@ function SubstitutionFinder({ openDeepDive }) {
         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-[3px] focus:border-[var(--accent)] outline-none text-[var(--ink)]"
       />
 
+      {/* No results — explain the role-based way of thinking and route to real content */}
+      {query && filtered.length === 0 && (() => {
+        const near = closestMatches(query, Object.keys(SUBSTITUTIONS));
+        const dive = findDeepDive(query.trim());
+        return (
+          <div className="text-center py-6 space-y-3">
+            <p className="text-sm italic text-[var(--ink-soft)]">
+              The book's substitution list doesn't have “{query}”. Don't ask “what's another {query}?” Ask what it does in your dish, then look up an ingredient that does the same job.
+            </p>
+            {near.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Closest match</span>
+                {near.map(item => (
+                  <button
+                    key={item}
+                    onClick={() => setQuery(item)}
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] transition"
+                    style={{ backgroundColor: "var(--surface)" }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+            {dive && openDeepDive && (
+              <button
+                onClick={() => openDeepDive(query.trim())}
+                className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+              >
+                Read the deep-dive on {dive.name} →
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="grid sm:grid-cols-2 gap-2">
         {filtered.map(item => {
           const sub = SUBSTITUTIONS[item];
@@ -4800,11 +5127,28 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
 
       {/* Storage table */}
       <div className="space-y-2">
-        {filtered.length === 0 && (
-          <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
-            Nothing matches “{query}”{filter !== "All" ? ` in ${filter}` : ""}. Try a different word or clear the filter.
-          </p>
-        )}
+        {filtered.length === 0 && (() => {
+          const near = closestMatches(query, [...STORAGE_GUIDE.map(s => s.name), ...categories.filter(c => c !== "All" && c !== filter)], 1);
+          const isCategory = near.length > 0 && categories.includes(near[0]);
+          return (
+            <div className="text-center py-6 space-y-2">
+              <p className="text-sm italic text-[var(--ink-soft)]">
+                Nothing matches “{query}”{filter !== "All" ? ` in ${filter}` : ""}. Try a different word or clear the filter.
+              </p>
+              {near.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (isCategory) { setFilter(near[0]); setQuery(""); }
+                    else { setQuery(near[0]); setFilter("All"); }
+                  }}
+                  className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                >
+                  Closest match: {near[0]} →
+                </button>
+              )}
+            </div>
+          );
+        })()}
         {filtered.map(item => {
           // Prefer an explicit dive hint; fall back to fuzzy name match.
           const dive = item.dive ? findDeepDive(item.dive) : findDeepDive(item.name);
@@ -4933,6 +5277,12 @@ function Scrapbook({ entries, addEntry, removeEntry, loaded, incModal, decModal,
       {sortedEntries.length > 0 && visibleEntries.length === 0 && (
         <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
           None of your saved recipes match “{query}”.
+          <button
+            onClick={() => setQuery("")}
+            className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+          >
+            Clear
+          </button>
         </p>
       )}
 
@@ -5469,6 +5819,9 @@ function LinkedProse({ text, onOpenDeepDive, onOpenTemplate, className = "" }) {
 
 function Support({ openShareApp, engagement }) {
   const [tipState, setTipState] = useState("idle"); // idle | thanks
+  const reviewOk = isConfiguredLink(EXTERNAL_LINKS.amazonReview);
+  const giftOk = isConfiguredLink(EXTERNAL_LINKS.amazonBook);
+  const amounts = tipAmounts(EXTERNAL_LINKS.tips);
 
   // Compose a friendly summary of the user's engagement so the page feels personalized
   const usage = useMemo(() => {
@@ -5481,9 +5834,7 @@ function Support({ openShareApp, engagement }) {
   }, [engagement]);
 
   const handleTip = (amount) => {
-    // Placeholder: in production, replace with a real Stripe payment link
-    const stripeUrl = `https://example.com/tip?amount=${amount}`;
-    window.open(stripeUrl, "_blank", "noopener");
+    window.open(EXTERNAL_LINKS.tips[amount], "_blank", "noopener");
     setTipState("thanks");
     setTimeout(() => setTipState("idle"), 4000);
   };
@@ -5494,7 +5845,7 @@ function Support({ openShareApp, engagement }) {
         <h3 className="font-display text-2xl text-[var(--ink)] mb-1">Support Scrap Alchemy</h3>
         <div className="h-1 w-12 mb-2" style={{ backgroundColor: "var(--spark)" }} />
         <p className="text-sm text-[var(--ink-soft)] italic">
-          If this app has helped you cook with confidence, here are three ways to give back. Just being here is support enough — anything beyond that is a generous bonus.
+          If this app has helped you cook with confidence, here are a few ways to give back. Just being here is support enough — anything beyond that is a generous bonus.
         </p>
       </div>
 
@@ -5507,7 +5858,8 @@ function Support({ openShareApp, engagement }) {
 
       {/* Three paths */}
       <div className="space-y-4">
-        {/* Path 1: Leave a review */}
+        {/* Path 1: Leave a review — only when a real review link is configured */}
+        {reviewOk && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
             <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">★</div>
@@ -5520,15 +5872,17 @@ function Support({ openShareApp, engagement }) {
             A one-line review on Amazon takes 30 seconds and helps other home cooks discover the book. This is the single best thing you can do.
           </p>
           <button
-            onClick={() => window.open("https://www.amazon.com/review/create-review", "_blank", "noopener")}
+            onClick={() => window.open(EXTERNAL_LINKS.amazonReview, "_blank", "noopener")}
             className="w-full px-4 py-2.5 text-sm uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition"
             style={{ backgroundColor: "var(--spark)", color: "var(--on-spark)" }}
           >
             ★ Review on Amazon
           </button>
         </div>
+        )}
 
-        {/* Path 2: Tip a coffee */}
+        {/* Path 2: Tip a coffee — only the amounts with configured payment links */}
+        {amounts.length > 0 && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
             <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">☕</div>
@@ -5546,7 +5900,7 @@ function Support({ openShareApp, engagement }) {
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              {[3, 5, 10].map(amount => (
+              {amounts.map(amount => (
                 <button
                   key={amount}
                   onClick={() => handleTip(amount)}
@@ -5559,8 +5913,10 @@ function Support({ openShareApp, engagement }) {
             </div>
           )}
         </div>
+        )}
 
-        {/* Path 3: Buy for a friend */}
+        {/* Path 3: Buy for a friend — only when the book's product page is configured */}
+        {giftOk && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
             <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">📖</div>
@@ -5573,13 +5929,14 @@ function Support({ openShareApp, engagement }) {
             Know a home cook, a new homeowner, a parent figuring out family meals? The book makes a thoughtful gift — and helps the work continue.
           </p>
           <button
-            onClick={() => window.open("https://www.amazon.com/dp/your-asin", "_blank", "noopener")}
+            onClick={() => window.open(EXTERNAL_LINKS.amazonBook, "_blank", "noopener")}
             className="w-full px-4 py-2.5 text-sm uppercase tracking-widest border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] font-bold flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--surface)" }}
           >
             📖 Gift on Amazon
           </button>
         </div>
+        )}
 
         {/* Path 4 (bonus): Tell a friend */}
         {openShareApp && (
@@ -6772,7 +7129,7 @@ function ShareAppModal({ onClose, incModal, decModal }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const APP_URL = "https://www.mgfrankbooks.com"; // Replace with real URL when deployed
+  const APP_URL = EXTERNAL_LINKS.appUrl;
   const SHARE_TEXT = `I've been using this kitchen app from a great cookbook — Scrap Alchemy by mg frank. It teaches you how to cook from what you have. Thought you'd like it: ${APP_URL}`;
 
   const handleNativeShare = async () => {
@@ -7339,6 +7696,9 @@ export default function App() {
       : 0;
 
     const earned = nextEarnedPrompt(engagement, daysInstalled);
+    // The review prompt has nowhere to send people until the real review link is
+    // configured — hold it (the earn conditions persist, so it fires once it is).
+    if (earned === "review" && !isConfiguredLink(EXTERNAL_LINKS.amazonReview)) return;
     if (earned) setPendingPrompt(earned);
   }, [engagement, engagementLoaded, activePrompt, pendingPrompt, promptShownThisSession]);
 
@@ -7362,8 +7722,7 @@ export default function App() {
   const dismissPrompt = (action) => {
     if (activePrompt === "review") {
       if (action === "act") {
-        // Open Amazon review page (replace ASIN with the real one when published)
-        window.open("https://www.amazon.com/review/create-review", "_blank");
+        window.open(EXTERNAL_LINKS.amazonReview, "_blank");
       }
       setEngagement(prev => ({
         ...prev,

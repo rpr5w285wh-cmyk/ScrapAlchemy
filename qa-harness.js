@@ -36,7 +36,8 @@ const NAMES = [
   "normIngredient", "slotHasOption", "bestSlotForIngredient", "computeInjections",
   "computeInitialPicksFromScraps", "computeInitialPicksFromIngredients", "computeInitialPicks",
   "defaultTabOrder", "movableRange", "moveGroup", "moveTabInGroup", "flattenTabOrder", "isValidTabOrder",
-  "enrichScrap", "enrichScraps",
+  "enrichScrap", "enrichScraps", "templatesForScrapType",
+  "isConfiguredLink", "tipAmounts", "editDistance", "closestMatches",
 ];
 // Also need the TEXTURE_CAVEATS / EXCLUSIONS data arrays textureCaveatFor closes over.
 function extractConst(name) {
@@ -48,6 +49,19 @@ function extractConst(name) {
     else if (src[i] === "]") { depth--; if (depth === 0) { end = i + 1; break; } }
   }
   return src.slice(start, end + 1); // include trailing ;
+}
+
+// Like extractConst, but for object-literal consts (brace-matched instead of
+// bracket-matched). Returns just the `{ ... }` literal, ready for eval("(" + s + ")").
+function extractObjConst(name) {
+  const start = src.indexOf(`const ${name}`);
+  if (start === -1) throw new Error(`const not found: ${name}`);
+  let i = src.indexOf("{", start), depth = 0, end = -1;
+  for (; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  return src.slice(src.indexOf("{", start), end);
 }
 
 const code =
@@ -563,7 +577,7 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
 // hint or name match) OR a template. This mirrors the StorageTimer card render rule.
 (function () {
   const DIVES = { "Rendered Fat": 1, "Confit Oil": 1, "Vinegar": 1, "Pickle Brine": 1, "Lemon": 1, "Parmesan": 1, "Anchovy": 1, "Homemade Salts": 1 };
-  const TEMPLATES = ["Confit Project", "Anytime Hash", "Pantry Pasta", "Alchemist's Soup"];
+  const TEMPLATES = ["Confit Project", "Anytime Hash", "Pantry Pasta", "Alchemist's Soup", "The Alchemist's Meal", "Stock from Scraps"];
   const find = (n) => { if (!n) return null; const l = n.toLowerCase(); for (const k of Object.keys(DIVES)) if (l.includes(k.toLowerCase())) return k; return null; };
   const resolves = (card) => {
     const dive = card.dive ? find(card.dive) : find(card.name);
@@ -575,7 +589,13 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   check("storage: template hint resolves", resolves({ name: "Soups and Stews", template: "Alchemist's Soup" }));
   check("storage: anchovies plural via dive hint", resolves({ name: "Open Anchovies", dive: "Anchovy" }));
   check("storage: salts resolve to Homemade Salts dive", resolves({ name: "Dried-Ingredient Salts", dive: "Homemade Salts" }));
-  check("storage: unmapped card does NOT falsely resolve", !resolves({ name: "Relishes & Sauces" }));
+  check("storage: relishes resolve via the Meal template", resolves({ name: "Relishes & Sauces", template: "The Alchemist's Meal" }));
+  check("storage: truly unmapped card does NOT falsely resolve", !resolves({ name: "Mystery Jar" }));
+  // Real-data sweep: no storage card may ever be actionless. A failure here means
+  // "give this card a `dive` or `template` field", not that this check is wrong.
+  const realGuide = eval(extractConst("STORAGE_GUIDE").replace(/^const STORAGE_GUIDE\s*=\s*/, ""));
+  for (const card of realGuide)
+    check(`storage: "${card.name}" resolves to an action`, resolves(card));
 })();
 
 // ---- 19. Past-prime "use them up" template aggregation ---------------------------
@@ -805,6 +825,180 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
     !builderUsable.some(s => s.id === "1"));
   check("builder-usable: customs sort last",
     builderUsable.length === 0 || builderUsable[builderUsable.length - 1].sortKey === Infinity || builderUsable.every(s => s.sortKey !== Infinity));
+})();
+
+// ---- 23. External-link configuration guard ----------------------------------------
+// Support actions and the review prompt render only for real, filled-in links.
+// null/placeholder values must read as "not configured" so no dead button ships.
+(function () {
+  check("links: null not configured", F.isConfiguredLink(null) === false);
+  check("links: undefined not configured", F.isConfiguredLink(undefined) === false);
+  check("links: empty/whitespace not configured", F.isConfiguredLink("  ") === false);
+  check("links: old tip stub rejected", F.isConfiguredLink("https://example.com/tip?amount=5") === false);
+  check("links: placeholder ASIN rejected", F.isConfiguredLink("https://www.amazon.com/dp/your-asin") === false);
+  check("links: http (non-https) rejected", F.isConfiguredLink("http://foo.com") === false);
+  check("links: non-string rejected", F.isConfiguredLink(42) === false);
+  check("links: real stripe link accepted", F.isConfiguredLink("https://buy.stripe.com/abc123") === true);
+  check("links: real amazon review link accepted", F.isConfiguredLink("https://www.amazon.com/review/create-review?asin=B0ABCDEF12") === true);
+  check("tips: null → no amounts", F.tipAmounts(null).length === 0);
+  check("tips: empty object → no amounts", F.tipAmounts({}).length === 0);
+  check("tips: sorted numerically", JSON.stringify(F.tipAmounts({ 10: "https://x.co/a", 3: "https://x.co/b", 5: "https://x.co/c" })) === "[3,5,10]");
+  check("tips: unconfigured amount dropped", JSON.stringify(F.tipAmounts({ 3: "https://x.co/a", 5: null })) === "[3]");
+  check("tips: non-positive amount dropped", F.tipAmounts({ "-3": "https://x.co/a", 0: "https://x.co/b" }).length === 0);
+  // Source-level regression guard: the placeholder URLs must never reappear as
+  // live values in the jsx (the config comments spell the patterns differently).
+  check("links: no example.com tip stub in source", !src.includes("example.com/tip"));
+  check("links: no placeholder-ASIN url in source", !src.includes("amazon.com/dp/your-asin"));
+})();
+
+// ---- 24. Zero-result nearest-match suggestions -------------------------------------
+// closestMatches powers "did you mean" in zero-result empty states. It must catch
+// typos and plural drift while staying silent on gibberish and very short queries —
+// a wrong suggestion is worse than none.
+(function () {
+  check("edit: identity is 0", F.editDistance("brine", "brine") === 0);
+  check("edit: one substitution", F.editDistance("brine", "bryne") === 1);
+  check("edit: one insertion", F.editDistance("brine", "brines") === 1);
+  check("edit: empty vs word", F.editDistance("", "abc") === 3);
+
+  check("near: typo finds parmesan", F.closestMatches("parmesean", ["Parmesan Rinds", "Pickle Brine", "Open Anchovies"])[0] === "Parmesan Rinds");
+  check("near: plural finds brine", F.closestMatches("brines", ["Pickle Brine", "Parmesan Rinds"])[0] === "Pickle Brine");
+  check("near: prefix finds anchovies", F.closestMatches("anch", ["Open Anchovies", "Confit Garlic"])[0] === "Open Anchovies");
+  check("near: gibberish → nothing", F.closestMatches("zzzqx", ["Pickle Brine", "Parmesan Rinds"]).length === 0);
+  check("near: under 3 chars → nothing", F.closestMatches("pa", ["Pasta", "Parmesan Rinds"]).length === 0);
+  check("near: case-insensitive", F.closestMatches("LEMON", ["Frozen Citrus (zest, juice, halves)", "Lemon"]).includes("Lemon"));
+  check("near: respects max", F.closestMatches("confi", ["Confit Garlic", "Meat Confit", "Vegetable/Fruit Confit"], 2).length === 2);
+  check("near: default max is 2", F.closestMatches("confi", ["Confit Garlic", "Meat Confit", "Vegetable/Fruit Confit"]).length === 2);
+  check("near: empty query safe", F.closestMatches("", ["a"]).length === 0);
+  check("near: null query safe", F.closestMatches(null, ["a"]).length === 0);
+  check("near: empty candidates safe", F.closestMatches("brine", []).length === 0);
+  check("near: prefix outranks typo", F.closestMatches("parm", ["Warm Rolls", "Parmesan Rinds"])[0] === "Parmesan Rinds");
+  check("near: exact word match wins", F.closestMatches("lemon", ["Lemon", "Melon"])[0] === "Lemon");
+})();
+
+// ---- 25. Template-name referential integrity --------------------------------------
+// Every name that can reach TemplateModal must resolve to real content, so the
+// framework fallback ("walkthrough isn't in the app yet") stays unreachable. When a
+// check here fails, it names exactly the walkthrough the author needs to write (or
+// the reference to fix) — it is not a harness bug.
+(function () {
+  const evalConst = (name) =>
+    eval(extractConst(name).replace(new RegExp(`^const ${name}\\s*=\\s*`), ""));
+  const templates = evalConst("TEMPLATES");
+  const names = new Set(templates.map(t => t.name));
+  check("tplint: TEMPLATES is non-empty", templates.length > 0);
+
+  // Object-literal keys (TEMPLATE_DETAILS etc.) sit two-space indented and
+  // double-quoted between their const and the next one.
+  const keysOf = (constName, nextConst) => {
+    const start = src.indexOf(`const ${constName}`);
+    const end = src.indexOf(`const ${nextConst}`);
+    return [...src.slice(start, end).matchAll(/^  "([^"]+)": \{/gm)].map(m => m[1]);
+  };
+  const detailKeys = keysOf("TEMPLATE_DETAILS", "BUILDER_RECIPES");
+  check("tplint: TEMPLATE_DETAILS keys extracted", detailKeys.length > 0);
+  for (const t of templates)
+    check(`tplint: "${t.name}" has a TEMPLATE_DETAILS walkthrough`, detailKeys.includes(t.name));
+  for (const k of detailKeys)
+    check(`tplint: details key "${k}" is a known template`, names.has(k));
+
+  // Storage cards' template actions must open a real template.
+  for (const card of evalConst("STORAGE_GUIDE"))
+    if (card.template) check(`tplint: storage "${card.name}" → known template`, names.has(card.template));
+
+  // Past-prime "use them up" suggestions only ever emit known template names.
+  for (const st of evalConst("SCRAP_TYPES"))
+    for (const n of F.templatesForScrapType(st.name))
+      check(`tplint: use-up suggestion "${n}" (for ${st.name}) is a known template`, names.has(n));
+  for (const n of F.templatesForScrapType("Something Unrecognized"))
+    check(`tplint: use-up fallback "${n}" is a known template`, names.has(n));
+
+  // Deep-dive usedIn references (double-quoted in source, so JSON.parse is safe).
+  for (const m of src.matchAll(/usedIn:\s*\[([^\]]*)\]/g))
+    for (const n of JSON.parse("[" + m[1] + "]"))
+      check(`tplint: usedIn "${n}" is a known template`, names.has(n));
+})();
+
+// ---- 26. Real BUILDER_RECIPES data sweep -------------------------------------------
+// The harness previously only exercised builder logic on hand-built mini-models;
+// this sweeps the real data so a malformed or misnamed entry fails by name.
+(function () {
+  const evalConst = (name) =>
+    eval(extractConst(name).replace(new RegExp(`^const ${name}\\s*=\\s*`), ""));
+  const recipes = eval("(" + extractObjConst("BUILDER_RECIPES") + ")");
+  const names = new Set(evalConst("TEMPLATES").map(t => t.name));
+
+  // Schema: every entry is a complete, well-formed builder.
+  for (const [key, r] of Object.entries(recipes)) {
+    check(`bldr: "${key}" is a known template`, names.has(key));
+    check(`bldr: "${key}" yield label`, typeof r.yield?.label === "string" && r.yield.label.length > 0);
+    check(`bldr: "${key}" has slots`, Array.isArray(r.slots) && r.slots.length > 0);
+    check(`bldr: "${key}" has method`, Array.isArray(r.method) && r.method.length > 0 && r.method.every(m => typeof m === "string" && m));
+    check(`bldr: "${key}" has storage`, typeof r.storage === "string" && r.storage.length > 0);
+    for (const s of r.slots) {
+      check(`bldr: "${key}"/"${s.id}" slot fields`,
+        typeof s.id === "string" && typeof s.label === "string" && typeof s.unit === "string" &&
+        typeof s.ratio === "number" && typeof s.helpText === "string");
+      check(`bldr: "${key}"/"${s.id}" has 2+ options`, Array.isArray(s.options) && s.options.length >= 2);
+      for (const o of s.options)
+        check(`bldr: "${key}"/"${s.id}"/"${o.name}" option fields`,
+          typeof o.name === "string" && o.name.length > 0 && typeof o.note === "string" && o.note.length > 0);
+    }
+  }
+
+  // The audit's content gap is closed: both formerly builder-less templates build.
+  check("bldr: The Alchemist's Meal has a builder", !!recipes["The Alchemist's Meal"]);
+  check("bldr: Stock from Scraps has a builder", !!recipes["Stock from Scraps"]);
+
+  const stock = recipes["Stock from Scraps"];
+  const meal = recipes["The Alchemist's Meal"];
+
+  // Trap guard: the SCRAP_KEYWORDS "stock" rule matches the vegetable-scrap-bag type,
+  // so a non-skip option named "...stock..." would be spuriously auto-picked by the
+  // very scrap this template exists to use. Keep "stock" out of option names.
+  for (const s of stock.slots)
+    for (const o of s.options)
+      if (!F.isSkipOption(o.name))
+        check(`bldr: stock option "${o.name}" avoids the word "stock"`, !/stock/i.test(o.name));
+
+  // Every skip-styled option in the new builders is recognized by the shared
+  // detector (data-driven, so renames can't silently break skip exclusivity).
+  check("bldr: 'Skip aromatics' is a skip", F.isSkipOption("Skip aromatics"));
+  check("bldr: bare 'Skip' is a skip", F.isSkipOption("Skip"));
+  for (const r of [stock, meal])
+    for (const s of r.slots)
+      for (const o of s.options)
+        if (/^skip/i.test(o.name))
+          check(`bldr: skip option "${o.name}" detected`, F.isSkipOption(o.name));
+  check("bldr: aromatics combo detected", F.isComboName("Bay leaves + black peppercorns"));
+
+  // Carried-in routing against the real slots.
+  const bag = F.computeInitialPicksFromScraps(stock, [{ type: "Vegetable Scrap Bag (for stock)" }]);
+  check("bldr: scrap bag auto-picks the freezer-bag option",
+    bag.scraps === "Frozen vegetable scrap bag from your pantry");
+  const rind = F.computeInitialPicksFromScraps(stock, [{ type: "Parmesan Rinds" }]);
+  check("bldr: parmesan rinds route to The Depth", /parmesan rind/i.test(rind.depth || ""));
+  const chick = F.computeInitialPicks(stock, [], ["Chicken"]);
+  check("bldr: carried chicken picks the carcass", asArr(chick.depth).some(p => /carcass/i.test(p)));
+  const conf = F.computeInitialPicksFromScraps(meal, [{ type: "Meat Confit" }]);
+  check("bldr: confit scrap routes to The Base", conf.base === "Confit from your pantry");
+  const shal = F.computeInitialPicksFromScraps(meal, [{ type: "Fried Shallots" }]);
+  check("bldr: fried shallots route to The Crunch", /fried shallots/i.test(shal.crunch || ""));
+  const vin = F.computeInitialPicksFromScraps(meal, [{ type: "Infused Vinegar" }]);
+  check("bldr: infused vinegar routes to The Flavor", /vinegar/i.test(vin.finish || ""));
+
+  // No carried-in ingredient vanishes (same invariant as test 7, real builders).
+  for (const [builder, set] of [
+    [stock, ["Onion", "Carrot", "Mushroom"]],
+    [stock, ["Chicken"]],
+    [meal, ["Chicken", "Rice"]],
+    [meal, ["Lemon"]],
+  ]) {
+    const p = F.computeInitialPicks(builder, [], set);
+    const j = F.computeInjections(builder, [], set);
+    for (const ing of set)
+      check(`bldr: [${set.join(",")}] "${ing}" accounted for`, accountedFor(ing, p, j));
+  }
 })();
 
 // ---- report ---------------------------------------------------------------------
