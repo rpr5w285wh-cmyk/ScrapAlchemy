@@ -37,7 +37,7 @@ const NAMES = [
   "computeInitialPicksFromScraps", "computeInitialPicksFromIngredients", "computeInitialPicks",
   "defaultTabOrder", "movableRange", "moveGroup", "moveTabInGroup", "flattenTabOrder", "isValidTabOrder",
   "enrichScrap", "enrichScraps", "templatesForScrapType",
-  "isConfiguredLink", "tipAmounts",
+  "isConfiguredLink", "tipAmounts", "editDistance", "closestMatches",
 ];
 // Also need the TEXTURE_CAVEATS / EXCLUSIONS data arrays textureCaveatFor closes over.
 function extractConst(name) {
@@ -836,6 +836,31 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   // live values in the jsx (the config comments spell the patterns differently).
   check("links: no example.com tip stub in source", !src.includes("example.com/tip"));
   check("links: no placeholder-ASIN url in source", !src.includes("amazon.com/dp/your-asin"));
+})();
+
+// ---- 24. Zero-result nearest-match suggestions -------------------------------------
+// closestMatches powers "did you mean" in zero-result empty states. It must catch
+// typos and plural drift while staying silent on gibberish and very short queries —
+// a wrong suggestion is worse than none.
+(function () {
+  check("edit: identity is 0", F.editDistance("brine", "brine") === 0);
+  check("edit: one substitution", F.editDistance("brine", "bryne") === 1);
+  check("edit: one insertion", F.editDistance("brine", "brines") === 1);
+  check("edit: empty vs word", F.editDistance("", "abc") === 3);
+
+  check("near: typo finds parmesan", F.closestMatches("parmesean", ["Parmesan Rinds", "Pickle Brine", "Open Anchovies"])[0] === "Parmesan Rinds");
+  check("near: plural finds brine", F.closestMatches("brines", ["Pickle Brine", "Parmesan Rinds"])[0] === "Pickle Brine");
+  check("near: prefix finds anchovies", F.closestMatches("anch", ["Open Anchovies", "Confit Garlic"])[0] === "Open Anchovies");
+  check("near: gibberish → nothing", F.closestMatches("zzzqx", ["Pickle Brine", "Parmesan Rinds"]).length === 0);
+  check("near: under 3 chars → nothing", F.closestMatches("pa", ["Pasta", "Parmesan Rinds"]).length === 0);
+  check("near: case-insensitive", F.closestMatches("LEMON", ["Frozen Citrus (zest, juice, halves)", "Lemon"]).includes("Lemon"));
+  check("near: respects max", F.closestMatches("confi", ["Confit Garlic", "Meat Confit", "Vegetable/Fruit Confit"], 2).length === 2);
+  check("near: default max is 2", F.closestMatches("confi", ["Confit Garlic", "Meat Confit", "Vegetable/Fruit Confit"]).length === 2);
+  check("near: empty query safe", F.closestMatches("", ["a"]).length === 0);
+  check("near: null query safe", F.closestMatches(null, ["a"]).length === 0);
+  check("near: empty candidates safe", F.closestMatches("brine", []).length === 0);
+  check("near: prefix outranks typo", F.closestMatches("parm", ["Warm Rolls", "Parmesan Rinds"])[0] === "Parmesan Rinds");
+  check("near: exact word match wins", F.closestMatches("lemon", ["Lemon", "Melon"])[0] === "Lemon");
 })();
 
 // ---- 25. Template-name referential integrity --------------------------------------

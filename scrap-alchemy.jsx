@@ -1992,6 +1992,48 @@ const MONTHLY_TEMPLATES = [
 
 
 
+// Small edit distance (Levenshtein) for typo tolerance in zero-result search
+// suggestions. Inputs are expected lowercase.
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = [i];
+    for (let j = 1; j <= n; j++) {
+      cur[j] = Math.min(
+        prev[j] + 1,
+        cur[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+// Given a query that matched nothing, rank candidate names by closeness so the
+// empty state can offer "did you mean". A candidate scores when any word of it
+// prefix-overlaps the query or sits within a small typo distance. Queries under
+// 3 characters return nothing — too noisy to guess.
+function closestMatches(query, candidates, max = 2) {
+  const q = (query || "").trim().toLowerCase();
+  if (q.length < 3) return [];
+  const scored = [];
+  for (const name of candidates) {
+    const words = String(name).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    let best = 0;
+    for (const w of words) {
+      if (w.length >= 3 && (w.startsWith(q) || q.startsWith(w))) { best = Math.max(best, 3); continue; }
+      const tol = q.length >= 6 ? 2 : 1;
+      if (Math.abs(w.length - q.length) <= tol && editDistance(q, w) <= tol) best = Math.max(best, 2);
+    }
+    if (best > 0) scored.push({ name, best });
+  }
+  return scored.sort((a, b) => b.best - a.best).slice(0, max).map(s => s.name);
+}
+
 function matchTemplates(selectedItems) {
   const lower = selectedItems.map(s => s.toLowerCase());
   const has = (term) => lower.some(item => item.includes(term));
@@ -2436,19 +2478,29 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
 
       {/* No results */}
       {enriched.length > 0 && visible.length === 0 && (
-        <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
-          {query
-            ? `Nothing here matches “${query}”.`
-            : "Nothing matches this filter."}
-          {(query || filterBy !== "all") && (
+        <div className="text-center py-6 space-y-2">
+          <p className="text-sm italic text-[var(--ink-soft)]">
+            {query
+              ? `Nothing here matches “${query}”.`
+              : "Nothing matches this filter."}
+            {(query || filterBy !== "all") && (
+              <button
+                onClick={() => { setQuery(""); setFilterBy("all"); }}
+                className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+              >
+                Clear
+              </button>
+            )}
+          </p>
+          {query && (
             <button
-              onClick={() => { setQuery(""); setFilterBy("all"); }}
-              className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+              onClick={() => setAdding(true)}
+              className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
             >
-              Clear
+              Add “{query}” to your pantry →
             </button>
           )}
-        </p>
+        </div>
       )}
 
       {/* List */}
@@ -2654,6 +2706,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
           onClose={() => setAdding(false)}
           incModal={incModal}
           decModal={decModal}
+          initialTypeQuery={visible.length === 0 ? query.trim() : ""}
         />
       )}
     </div>
@@ -2738,7 +2791,7 @@ function PastPrimeSuggestion({ scrap, onOpenTemplate, onUsedUp, onDiscard }) {
   );
 }
 
-function AddScrapModal({ onAdd, onClose, incModal, decModal }) {
+function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = "" }) {
   const [step, setStep] = useState(1);
   const [type, setType] = useState(null);
   const [location, setLocation] = useState(null);
@@ -2746,7 +2799,7 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal }) {
   const [note, setNote] = useState("");
   const [dateStored, setDateStored] = useState(new Date().toISOString().slice(0, 10));
   const [category, setCategory] = useState("Fats");
-  const [typeQuery, setTypeQuery] = useState("");
+  const [typeQuery, setTypeQuery] = useState(initialTypeQuery);
 
   useEffect(() => {
     if (incModal) incModal();
@@ -3225,11 +3278,43 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
       )}
 
       {/* No search results */}
-      {searchHits && searchHits.length === 0 && (
-        <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
-          No ingredients match “{query}”. You can still tap items in their category, or save anything as a scrap in My Pantry.
-        </p>
-      )}
+      {searchHits && searchHits.length === 0 && (() => {
+        const near = closestMatches(query, Object.values(PANTRY).flat());
+        return (
+          <div className="text-center py-6 space-y-3">
+            <p className="text-sm italic text-[var(--ink-soft)]">
+              No ingredients match “{query}”. The Builder lists the book's core ingredients — try a simpler word (“pasta”, “greens”, “oil”).
+            </p>
+            {near.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Did you mean</span>
+                {near.map(item => (
+                  <button
+                    key={item}
+                    onClick={() => { toggle(item); setQuery(""); }}
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] transition"
+                    style={{ backgroundColor: "var(--surface)" }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+            {onTabChange && (
+              <p className="text-sm italic text-[var(--ink-soft)]">
+                Have it anyway? Save it in{" "}
+                <button
+                  onClick={() => onTabChange("pantry")}
+                  className="not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+                >
+                  My Pantry
+                </button>{" "}
+                and it'll appear here under “From your pantry”.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Items */}
       <div className="flex flex-wrap gap-2">
@@ -4740,6 +4825,42 @@ function SubstitutionFinder({ openDeepDive }) {
         className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-[3px] focus:border-[var(--accent)] outline-none text-[var(--ink)]"
       />
 
+      {/* No results — explain the role-based way of thinking and route to real content */}
+      {query && filtered.length === 0 && (() => {
+        const near = closestMatches(query, Object.keys(SUBSTITUTIONS));
+        const dive = findDeepDive(query.trim());
+        return (
+          <div className="text-center py-6 space-y-3">
+            <p className="text-sm italic text-[var(--ink-soft)]">
+              The book's substitution list doesn't have “{query}”. Substitutions here work by role, not name — ask what the missing ingredient does (salt, fat, acid, or umami), then look up the ingredient that usually does that job.
+            </p>
+            {near.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="text-xs uppercase tracking-widest text-[var(--ink-soft)]">Did you mean</span>
+                {near.map(item => (
+                  <button
+                    key={item}
+                    onClick={() => setQuery(item)}
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] transition"
+                    style={{ backgroundColor: "var(--surface)" }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+            {dive && openDeepDive && (
+              <button
+                onClick={() => openDeepDive(query.trim())}
+                className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+              >
+                Read the deep-dive on {dive.name} →
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       <div className="grid sm:grid-cols-2 gap-2">
         {filtered.map(item => {
           const sub = SUBSTITUTIONS[item];
@@ -4867,11 +4988,28 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
 
       {/* Storage table */}
       <div className="space-y-2">
-        {filtered.length === 0 && (
-          <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
-            Nothing matches “{query}”{filter !== "All" ? ` in ${filter}` : ""}. Try a different word or clear the filter.
-          </p>
-        )}
+        {filtered.length === 0 && (() => {
+          const near = closestMatches(query, [...STORAGE_GUIDE.map(s => s.name), ...categories.filter(c => c !== "All" && c !== filter)], 1);
+          const isCategory = near.length > 0 && categories.includes(near[0]);
+          return (
+            <div className="text-center py-6 space-y-2">
+              <p className="text-sm italic text-[var(--ink-soft)]">
+                Nothing matches “{query}”{filter !== "All" ? ` in ${filter}` : ""}. Try a different word or clear the filter.
+              </p>
+              {near.length > 0 && (
+                <button
+                  onClick={() => {
+                    if (isCategory) { setFilter(near[0]); setQuery(""); }
+                    else { setQuery(near[0]); setFilter("All"); }
+                  }}
+                  className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                >
+                  Closest match: {near[0]} →
+                </button>
+              )}
+            </div>
+          );
+        })()}
         {filtered.map(item => {
           // Prefer an explicit dive hint; fall back to fuzzy name match.
           const dive = item.dive ? findDeepDive(item.dive) : findDeepDive(item.name);
@@ -5000,6 +5138,12 @@ function Scrapbook({ entries, addEntry, removeEntry, loaded, incModal, decModal,
       {sortedEntries.length > 0 && visibleEntries.length === 0 && (
         <p className="text-sm italic text-[var(--ink-soft)] text-center py-6">
           None of your saved recipes match “{query}”.
+          <button
+            onClick={() => setQuery("")}
+            className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+          >
+            Clear
+          </button>
         </p>
       )}
 
