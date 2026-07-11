@@ -19,10 +19,15 @@ npm run preview    # serve the production build locally
 
 ## Deploy
 
-`npm run build` produces a self-contained static site in `dist/`. The build uses
-relative asset paths, so it works at the root of mgfrankbooks.com or in any
-subdirectory — upload the *contents* of `dist/` to the target directory on
-DreamHost. (Full deployment automation is deliberately deferred.)
+**GitHub Pages (current):** every push to `main` runs `.github/workflows/pages.yml`
+(QA harness → build → deploy) and publishes to
+<https://rpr5w285wh-cmyk.github.io/ScrapAlchemy/>. One-time setup: repo
+Settings → Pages → Source: "GitHub Actions".
+
+**DreamHost (eventual home):** `npm run build` produces a self-contained static
+site in `dist/`. The build uses relative asset paths, so it works at the root of
+mgfrankbooks.com or in any subdirectory — upload the *contents* of `dist/` to the
+target directory.
 
 ## Where things live
 
