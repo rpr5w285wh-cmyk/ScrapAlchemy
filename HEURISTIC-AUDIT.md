@@ -42,8 +42,9 @@ some to build this" etc.; empty-state and ideas-caption reworded; the Stock-from
 now says "a starchy base". No user-facing "anchor" remains. (Was: "Add pasta to anchor this.")
 
 🟢 **Low — scrap-type names mix specificity.** Some are very specific ("Raw Infused Oil
-(garlic, fresh herbs)") and some broad ("Relishes & Sauces"). Fine, but the breadth gap
-shows up as the one storage card with no actionable template. **(Still open — see C&D.)**
+(garlic, fresh herbs)") and some broad ("Relishes & Sauces"). Fine; the breadth gap no
+longer leaves a card actionless — the Relishes & Sauces storage card now links to The
+Alchemist's Meal as its generic "use it up" path. **(Naming mix itself: accepted.)**
 
 ---
 
@@ -76,8 +77,10 @@ on Home also uses a dashed top border — verify the signal isn't diluting. **(W
 ✅ **Strength.** Custom items are never flagged "past prime". Date defaults to today.
 Food-safety warnings appear inline on risky types (botulism on raw garlic oil, reheat temps).
 
-🟠 **Medium — free-text search has no empty-safe guidance beyond "no match".** Minor; a
-zero-result search could suggest clearing or offer the closest category. **(Still open.)**
+✔️ **Resolved — zero-result searches now offer a forward path.** Every search surface
+suggests the closest real item ("did you mean", via the pure `closestMatches`), routes to
+relevant content (Subs → ingredient deep-dive), or offers the next action (Pantry → add the
+item; Builder → select the suggestion or go save it). (Was: "no match" with nothing to do.)
 
 ---
 
@@ -161,9 +164,9 @@ their group. Footer carries Share · Support · Settings on every page.
 Scraps; substitutions include Spices + the three blend recipes; scrap-types include Stock or
 Broth. Materially complete against the book.
 
-🟢 **Low — "Relishes & Sauces" storage card still has no template link.** Genuinely too broad
-to map to one template; an honest exception. Could link to the Meal Template as a generic
-"use it up" path. **(Still open — polish.)**
+✔️ **Resolved — "Relishes & Sauces" storage card now links to The Alchemist's Meal** as the
+generic "use it up" path (its Flavor part literally calls for "a spoonful of savory relish").
+QA now sweeps the real STORAGE_GUIDE: every card must resolve to a dive or template.
 
 ---
 
@@ -183,12 +186,39 @@ to map to one template; an honest exception. Could link to the Meal Template as 
 ## Still open (polish, non-blocking)
 
 - 🟢 Header is tall; could condense on inner tabs (#8).
-- 🟠 Zero-result search could offer guidance beyond "no match" (#5).
 - 🟢 No bulk actions in the pantry (#7).
-- 🟢 "Relishes & Sauces" storage card has no template link (content).
 - 🟢 Verify dashed-border signal isn't diluting now that the Home "App guide" divider uses one (#4).
 
 ---
+
+## Changelog — quick-wins session (July 2026)
+
+- **External links centralized + honest Support tab.** New `EXTERNAL_LINKS` config at the
+  top of the jsx (author fills in real URLs; null = hidden). The Support tab's Review /
+  Tip / Gift cards now render only when their link is configured — the stub tip jar
+  (example.com), generic Amazon review URL, and placeholder ASIN no longer ship as live
+  buttons. The earned review prompt is held until the review link exists (earn conditions
+  persist, so it fires once configured); ShareAppModal reads the app URL from the config.
+  Copy proposed for author review: Support intro "three ways" → "a few ways"; Home guide
+  Support note → "share or support the book". QA: `isConfiguredLink` / `tipAmounts`
+  invariants + source-level scans so the placeholder URLs can never reappear.
+- **Zero-result search guidance (#5, the last Medium).** Every search surface now offers a
+  forward path on no-match: Builder and Storage suggest the closest real item via new pure
+  `closestMatches` / `editDistance` (typo/plural tolerant, silent under 3 chars and on
+  gibberish); Substitutions — previously a silently empty grid — explains role-based
+  substitution, offers "did you mean" chips, and deep-links a matching ingredient dive;
+  Pantry offers "Add “q” to your pantry" (pre-fills the Add modal via a new optional
+  `initialTypeQuery` prop); Scrapbook gains the same Clear affordance as Pantry.
+- **"Walkthrough coming soon" dead end removed.** TemplateModal's framework fallback now
+  shows the template's tagline + blurb with one-tap routes to Build mine / Story when they
+  exist. All 9 templates currently have walkthroughs, so the state is latent — QA now
+  enforces template-name referential integrity (TEMPLATES ↔ TEMPLATE_DETAILS ↔ storage
+  cards ↔ use-up suggestions ↔ deep-dive usedIn), so a future dead end fails the harness
+  by name. Content gap for the author: no "Build mine" flow for The Alchemist's Meal and
+  Stock from Scraps (possibly intentional).
+- **Relishes & Sauces storage card linked to The Alchemist's Meal** — the one storage card
+  with no action. QA §18 now sweeps the real STORAGE_GUIDE (every card resolves).
+- QA harness: 1002 → 1203 assertions, all green. esbuild + Vite production build verified.
 
 ## Changelog — publish scaffolding session (July 2026)
 
