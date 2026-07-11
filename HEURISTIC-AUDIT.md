@@ -215,7 +215,21 @@ QA now sweeps the real STORAGE_GUIDE: every card must resolve to a dive or templ
   enforces template-name referential integrity (TEMPLATES ↔ TEMPLATE_DETAILS ↔ storage
   cards ↔ use-up suggestions ↔ deep-dive usedIn), so a future dead end fails the harness
   by name. Content gap for the author: no "Build mine" flow for The Alchemist's Meal and
-  Stock from Scraps (possibly intentional).
+  Stock from Scraps (possibly intentional). → Draft builders for both were scaffolded in
+  a follow-up commit (see below); they are author-editable scaffolds, not final copy.
+- **"Build mine" scaffolds drafted for The Alchemist's Meal and Stock from Scraps**
+  (follow-up to the gap above; PENDING AUTHOR COPY REVIEW). Slot labels, method steps,
+  and most option text are sourced verbatim from the templates' own framework text and
+  existing builder entries; safety wording is copied verbatim, never paraphrased. The
+  Meal builder deliberately uses qualitative amounts ("The centerpiece", "A dollop") so
+  no numeric measurements are invented — the batch stepper is a no-op there by design.
+  Invented and flagged: Stock's 8-cup ratio and "About 2 quarts" yield. Known judgment
+  calls for the author: the Meal's Temperature slot (moves, not ingredients — delete if
+  it feels off) and whether the Meal should have a builder at all. Noted, not changed:
+  a saved "Relishes & Sauces" scrap gets "no slot here" in the Meal builder (adding a
+  relish rule to SCRAP_KEYWORDS would fix it but touches shared routing). QA: new real-
+  data sweep over ALL of BUILDER_RECIPES (schema, known-name keys, skip detection,
+  carried-in routing, no-option-named-"stock" trap guard); 1203 → 1636 assertions.
 - **Relishes & Sauces storage card linked to The Alchemist's Meal** — the one storage card
   with no action. QA §18 now sweeps the real STORAGE_GUIDE (every card resolves).
 - QA harness: 1002 → 1203 assertions, all green. esbuild + Vite production build verified.

@@ -51,6 +51,19 @@ function extractConst(name) {
   return src.slice(start, end + 1); // include trailing ;
 }
 
+// Like extractConst, but for object-literal consts (brace-matched instead of
+// bracket-matched). Returns just the `{ ... }` literal, ready for eval("(" + s + ")").
+function extractObjConst(name) {
+  const start = src.indexOf(`const ${name}`);
+  if (start === -1) throw new Error(`const not found: ${name}`);
+  let i = src.indexOf("{", start), depth = 0, end = -1;
+  for (; i < src.length; i++) {
+    if (src[i] === "{") depth++;
+    else if (src[i] === "}") { depth--; if (depth === 0) { end = i + 1; break; } }
+  }
+  return src.slice(src.indexOf("{", start), end);
+}
+
 const code =
   extractConst("TEXTURE_CAVEATS") + "\n" +
   extractConst("TEXTURE_CAVEAT_EXCLUSIONS") + "\n" +
@@ -904,6 +917,84 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   for (const m of src.matchAll(/usedIn:\s*\[([^\]]*)\]/g))
     for (const n of JSON.parse("[" + m[1] + "]"))
       check(`tplint: usedIn "${n}" is a known template`, names.has(n));
+})();
+
+// ---- 26. Real BUILDER_RECIPES data sweep -------------------------------------------
+// The harness previously only exercised builder logic on hand-built mini-models;
+// this sweeps the real data so a malformed or misnamed entry fails by name.
+(function () {
+  const evalConst = (name) =>
+    eval(extractConst(name).replace(new RegExp(`^const ${name}\\s*=\\s*`), ""));
+  const recipes = eval("(" + extractObjConst("BUILDER_RECIPES") + ")");
+  const names = new Set(evalConst("TEMPLATES").map(t => t.name));
+
+  // Schema: every entry is a complete, well-formed builder.
+  for (const [key, r] of Object.entries(recipes)) {
+    check(`bldr: "${key}" is a known template`, names.has(key));
+    check(`bldr: "${key}" yield label`, typeof r.yield?.label === "string" && r.yield.label.length > 0);
+    check(`bldr: "${key}" has slots`, Array.isArray(r.slots) && r.slots.length > 0);
+    check(`bldr: "${key}" has method`, Array.isArray(r.method) && r.method.length > 0 && r.method.every(m => typeof m === "string" && m));
+    check(`bldr: "${key}" has storage`, typeof r.storage === "string" && r.storage.length > 0);
+    for (const s of r.slots) {
+      check(`bldr: "${key}"/"${s.id}" slot fields`,
+        typeof s.id === "string" && typeof s.label === "string" && typeof s.unit === "string" &&
+        typeof s.ratio === "number" && typeof s.helpText === "string");
+      check(`bldr: "${key}"/"${s.id}" has 2+ options`, Array.isArray(s.options) && s.options.length >= 2);
+      for (const o of s.options)
+        check(`bldr: "${key}"/"${s.id}"/"${o.name}" option fields`,
+          typeof o.name === "string" && o.name.length > 0 && typeof o.note === "string" && o.note.length > 0);
+    }
+  }
+
+  // The audit's content gap is closed: both formerly builder-less templates build.
+  check("bldr: The Alchemist's Meal has a builder", !!recipes["The Alchemist's Meal"]);
+  check("bldr: Stock from Scraps has a builder", !!recipes["Stock from Scraps"]);
+
+  const stock = recipes["Stock from Scraps"];
+  const meal = recipes["The Alchemist's Meal"];
+
+  // Trap guard: the SCRAP_KEYWORDS "stock" rule matches the vegetable-scrap-bag type,
+  // so a non-skip option named "...stock..." would be spuriously auto-picked by the
+  // very scrap this template exists to use. Keep "stock" out of option names.
+  for (const s of stock.slots)
+    for (const o of s.options)
+      if (!F.isSkipOption(o.name))
+        check(`bldr: stock option "${o.name}" avoids the word "stock"`, !/stock/i.test(o.name));
+
+  // New skip strings are recognized by the shared skip detector.
+  check("bldr: 'Skip aromatics' is a skip", F.isSkipOption("Skip aromatics"));
+  check("bldr: 'Skip — vegetables only' is a skip", F.isSkipOption("Skip — vegetables only"));
+  check("bldr: 'Skip — serve it all warm' is a skip", F.isSkipOption("Skip — serve it all warm"));
+  check("bldr: bare 'Skip' is a skip", F.isSkipOption("Skip"));
+  check("bldr: aromatics combo detected", F.isComboName("Bay leaves + black peppercorns"));
+
+  // Carried-in routing against the real slots.
+  const bag = F.computeInitialPicksFromScraps(stock, [{ type: "Vegetable Scrap Bag (for stock)" }]);
+  check("bldr: scrap bag auto-picks the freezer-bag option",
+    bag.scraps === "Frozen vegetable scrap bag from your pantry");
+  const rind = F.computeInitialPicksFromScraps(stock, [{ type: "Parmesan Rinds" }]);
+  check("bldr: parmesan rinds route to The Depth", /parmesan rind/i.test(rind.depth || ""));
+  const chick = F.computeInitialPicks(stock, [], ["Chicken"]);
+  check("bldr: carried chicken picks the carcass", asArr(chick.depth).some(p => /carcass/i.test(p)));
+  const conf = F.computeInitialPicksFromScraps(meal, [{ type: "Meat Confit" }]);
+  check("bldr: confit scrap routes to The Base", conf.base === "Confit from your pantry");
+  const shal = F.computeInitialPicksFromScraps(meal, [{ type: "Fried Shallots" }]);
+  check("bldr: fried shallots route to The Crunch", /fried shallots/i.test(shal.crunch || ""));
+  const vin = F.computeInitialPicksFromScraps(meal, [{ type: "Infused Vinegar" }]);
+  check("bldr: infused vinegar routes to The Flavor", /vinegar/i.test(vin.finish || ""));
+
+  // No carried-in ingredient vanishes (same invariant as test 7, real builders).
+  for (const [builder, set] of [
+    [stock, ["Onion", "Carrot", "Mushroom"]],
+    [stock, ["Chicken"]],
+    [meal, ["Chicken", "Rice"]],
+    [meal, ["Lemon"]],
+  ]) {
+    const p = F.computeInitialPicks(builder, [], set);
+    const j = F.computeInjections(builder, [], set);
+    for (const ing of set)
+      check(`bldr: [${set.join(",")}] "${ing}" accounted for`, accountedFor(ing, p, j));
+  }
 })();
 
 // ---- report ---------------------------------------------------------------------
