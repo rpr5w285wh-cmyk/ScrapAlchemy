@@ -563,7 +563,7 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
 // hint or name match) OR a template. This mirrors the StorageTimer card render rule.
 (function () {
   const DIVES = { "Rendered Fat": 1, "Confit Oil": 1, "Vinegar": 1, "Pickle Brine": 1, "Lemon": 1, "Parmesan": 1, "Anchovy": 1, "Homemade Salts": 1 };
-  const TEMPLATES = ["Confit Project", "Anytime Hash", "Pantry Pasta", "Alchemist's Soup"];
+  const TEMPLATES = ["Confit Project", "Anytime Hash", "Pantry Pasta", "Alchemist's Soup", "The Alchemist's Meal", "Stock from Scraps"];
   const find = (n) => { if (!n) return null; const l = n.toLowerCase(); for (const k of Object.keys(DIVES)) if (l.includes(k.toLowerCase())) return k; return null; };
   const resolves = (card) => {
     const dive = card.dive ? find(card.dive) : find(card.name);
@@ -575,7 +575,13 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   check("storage: template hint resolves", resolves({ name: "Soups and Stews", template: "Alchemist's Soup" }));
   check("storage: anchovies plural via dive hint", resolves({ name: "Open Anchovies", dive: "Anchovy" }));
   check("storage: salts resolve to Homemade Salts dive", resolves({ name: "Dried-Ingredient Salts", dive: "Homemade Salts" }));
-  check("storage: unmapped card does NOT falsely resolve", !resolves({ name: "Relishes & Sauces" }));
+  check("storage: relishes resolve via the Meal template", resolves({ name: "Relishes & Sauces", template: "The Alchemist's Meal" }));
+  check("storage: truly unmapped card does NOT falsely resolve", !resolves({ name: "Mystery Jar" }));
+  // Real-data sweep: no storage card may ever be actionless. A failure here means
+  // "give this card a `dive` or `template` field", not that this check is wrong.
+  const realGuide = eval(extractConst("STORAGE_GUIDE").replace(/^const STORAGE_GUIDE\s*=\s*/, ""));
+  for (const card of realGuide)
+    check(`storage: "${card.name}" resolves to an action`, resolves(card));
 })();
 
 // ---- 19. Past-prime "use them up" template aggregation ---------------------------

@@ -71,7 +71,7 @@ const STORAGE_GUIDE = [
   { name: "Fresh-Ingredient Salts", category: "Salts", fridge: "1–2 weeks", freezer: "—", note: "Moisture risks mold — keep cold.", dive: "Homemade Salts" },
   { name: "Meat Confit", category: "Compound", fridge: "Up to 1 month", freezer: "—", note: "Keep fully submerged in fat.", template: "Confit Project" },
   { name: "Vegetable/Fruit Confit", category: "Compound", fridge: "Several weeks", freezer: "—", note: "Keep fully submerged in fat.", template: "Confit Project" },
-  { name: "Relishes & Sauces", category: "Compound", fridge: "4–7 days", freezer: "—", note: "Reheat to 165°F (74°C)." },
+  { name: "Relishes & Sauces", category: "Compound", fridge: "4–7 days", freezer: "—", note: "Reheat to 165°F (74°C).", template: "The Alchemist's Meal" },
   { name: "Cooked Meat or Poultry", category: "Leftovers", fridge: "3–4 days", freezer: "2–6 months", template: "Anytime Hash" },
   { name: "Cooked Fish", category: "Leftovers", fridge: "3–4 days", freezer: "4–6 months", template: "Anytime Hash" },
   { name: "Cooked Pasta or Grains", category: "Leftovers", fridge: "3–5 days", freezer: "1–2 months", template: "Pantry Pasta" },
