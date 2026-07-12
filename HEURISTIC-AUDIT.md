@@ -191,6 +191,16 @@ QA now sweeps the real STORAGE_GUIDE: every card must resolve to a dive or templ
 
 ---
 
+## Changelog — Home Screen icon (July 2026)
+
+- **Home Screen icon added** (wrapper-only change; no jsx, storage, or display-mode
+  edits). New alembic-flask mark, paper-white line art with a terracotta drop on the
+  Linen sage ground: `public/apple-touch-icon.png` (180px) + `icon-192/512.png` for
+  future use, linked from `index.html`; the emoji tab favicon swapped for the same
+  artwork (`public/favicon.svg`). iOS previously showed a letter-"S" tile because no
+  apple-touch-icon existed. Existing Home Screen installs keep their old tile and
+  their data; re-adding shows the flask.
+
 ## Changelog — quick-wins session (July 2026)
 
 - **External links centralized + honest Support tab.** New `EXTERNAL_LINKS` config at the

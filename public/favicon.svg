@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <rect width="180" height="180" fill="#7a8b6f"/>
+  <g transform="translate(96 93) scale(1.12) translate(-96 -93)">
+    <g fill="none" stroke="#f7f5f0" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">
+      <!-- bulb: circle centered (78,114) r=30 with a gap at the top for the neck -->
+      <path d="M 68 85.7 A 30 30 0 1 0 88 85.7"/>
+      <!-- left neck line rising, curving over the dome into the upper spout line -->
+      <path d="M 68 86 L 68 58 Q 68 42 84 42 Q 102 42 126 62 L 135 70"/>
+      <!-- right neck line rising, turning right into the lower spout line -->
+      <path d="M 88 86 L 88 62 Q 88 54 96 56 Q 112 60 124 70 L 133 74"/>
+      <!-- liquid line inside the bulb -->
+      <path d="M 56 118 L 100 118"/>
+    </g>
+    <!-- terracotta drop falling from the spout tip -->
+    <path d="M 138 86 Q 144 96 144 102 A 7.5 7.5 0 1 1 129 102 Q 129 96 135 86 Q 136.5 84 138 86 Z" fill="#b6633f"/>
+  </g>
+</svg>
