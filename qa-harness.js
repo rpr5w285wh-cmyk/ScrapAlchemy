@@ -373,7 +373,16 @@ const P = (e, d = 0) => F.nextEarnedPrompt(e, d);
 // Fresh user, no activity → nothing.
 check("fresh user → no prompt", P({}) === null);
 // First scrapbook entry → newsletter.
-check("1 scrapbook entry → newsletter", P({ scrapbookEntries: 1 }) === "newsletter");
+check("1 scrapbook entry → not yet (first save is too early)", P({ scrapbookEntries: 1 }) === null);
+check("2 scrapbook entries → newsletter", P({ scrapbookEntries: 2 }) === "newsletter");
+// Newsletter unavailable (no endpoint configured): never offered, and it no longer
+// blocks the review — the review fires on its own thresholds.
+const PN = (e, d = 0) => F.nextEarnedPrompt(e, d, { newsletter: false });
+check("no endpoint: heavy activity → never newsletter", PN({ scrapbookEntries: 9, recipesBuilt: 9 }) !== "newsletter");
+check("no endpoint: review earned without newsletter shown", PN({ scrapbookEntries: 2 }) === "review");
+check("no endpoint: review not yet earned → null", PN({ scrapbookEntries: 1 }) === null);
+check("no endpoint: review already shown → null", PN({ reviewPromptShown: true, scrapbookEntries: 9 }) === null);
+check("endpoint on (explicit) behaves as default", F.nextEarnedPrompt({ scrapbookEntries: 2 }, 0, { newsletter: true }) === "newsletter");
 check("2 recipes built → newsletter", P({ recipesBuilt: 2 }) === "newsletter");
 check("1 recipe built → not yet", P({ recipesBuilt: 1 }) === null);
 check("pantry add but <3 days → no newsletter", P({ pantryAdds: 1 }, 1) === null);
@@ -1002,6 +1011,71 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
 })();
 
 // ---- report ---------------------------------------------------------------------
+// ---- 27. Carried-in ingredients land in the slot their ROLE points at -----------
+// "Chicken" is named by two Anytime Hash slots (Fat: "Chicken fat (schmaltz)",
+// Protein: "Pulled chicken"). Document order used to win → chicken became the fat.
+{
+  const BUILDER_RECIPES = eval("(" + extractObjConst("BUILDER_RECIPES") + ")");
+  const PANTRY = eval("(" + extractObjConst("PANTRY") + ")");
+  const hash = BUILDER_RECIPES["Anytime Hash"];
+  const picks = F.computeInitialPicksFromIngredients(hash, ["Chicken"]);
+  check("hash: Chicken fills the protein slot", /chicken/i.test(String(picks.protein || "")));
+  check("hash: Chicken does not fill the fat slot", picks.fat === undefined);
+  const three = F.computeInitialPicksFromIngredients(hash, ["Chicken", "Potatoes", "Onion"]);
+  check("hash: Chicken+Potatoes+Onion → protein, starch, aromatic", !!three.protein && !!three.starch && !!three.aromatic && three.fat === undefined);
+  // General invariant across every builder and every Builder-tab ingredient: when the
+  // role hint names a slot that lists the ingredient, the pick lands in THAT slot.
+  let roleMisses = 0, roleChecked = 0;
+  for (const [tname, b] of Object.entries(BUILDER_RECIPES)) {
+    for (const ing of Object.values(PANTRY).flat()) {
+      const w = ing.toLowerCase().replace(/\/.*$/, "").trim();
+      const preferred = F.bestSlotForIngredient(b, w);
+      if (!preferred) continue;
+      const pslot = b.slots.find(s => s.id === preferred);
+      if (!pslot || !pslot.options.some(o => !F.isComboName(o.name) && o.name.toLowerCase().includes(w))) continue;
+      roleChecked++;
+      const p = F.computeInitialPicksFromIngredients(b, [ing]);
+      const landed = Object.keys(p);
+      if (!landed.includes(preferred)) { roleMisses++; console.log(`    role miss: ${tname} / ${ing} → ${landed.join(",") || "nothing"} (expected ${preferred})`); }
+    }
+  }
+  check(`role-hinted slot wins wherever it lists the ingredient (${roleChecked} cases)`, roleChecked > 0 && roleMisses === 0);
+  // Nothing vanishes: every carried-in ingredient that ANY slot names still gets picked somewhere.
+  let lost = 0;
+  for (const b of Object.values(BUILDER_RECIPES)) {
+    for (const ing of Object.values(PANTRY).flat()) {
+      const w = ing.toLowerCase().replace(/\/.*$/, "").trim();
+      const namedSomewhere = b.slots.some(s => s.options.some(o => !F.isComboName(o.name) && o.name.toLowerCase().includes(w)));
+      if (!namedSomewhere) continue;
+      const p = F.computeInitialPicksFromIngredients(b, [ing]);
+      const found = Object.values(p).flat().some(n => String(n).toLowerCase().includes(w));
+      if (!found) lost++;
+    }
+  }
+  check("no carried-in ingredient named by a slot is dropped", lost === 0);
+}
+
+// ---- 28. Source-level UI invariants (things the harness can't render) -----------
+{
+  // H1: an outlined chip must never combine a Tailwind hover:text-surface class with
+  // an inline surface background — the inline style wins the background, the class
+  // wins the text, and iOS sticky :hover leaves the label white-on-white after a tap.
+  const L = src.split("\n");
+  let hoverTraps = 0;
+  for (let i = 0; i < L.length; i++) {
+    if (L[i].includes("hover:text-[var(--surface)]") && L.slice(i + 1, i + 4).some(x => x.includes('backgroundColor: "var(--surface)"'))) hoverTraps++;
+  }
+  check("no chip mixes hover:text-surface with an inline surface background", hoverTraps === 0);
+  check("chip-invert hover fill is scoped to hover-capable pointers", /@media \(hover: hover\)[\s\S]{0,200}chip-invert:hover/.test(src));
+  // H4: past-prime status text must not be drawn in the calm accent.
+  check("past-prime status text is not the sage accent (pantry)", !/"danger" \? "var\(--accent\)"/.test(src));
+  check("past-prime status text is not the sage accent (home)", !/sortKey < 0 \? "var\(--accent\)"/.test(src));
+  check("healthy countdown no longer uses --moss text (fails AA at 12px)", !/"var\(--spark-text\)" : "var\(--moss\)"/.test(src));
+  // H2: the newsletter prompt is gated on a configured endpoint at the call site.
+  check("newsletter prompt gated on EXTERNAL_LINKS.newsletterEndpoint", /nextEarnedPrompt\(engagement, daysInstalled, \{[\s\S]{0,80}newsletterEndpoint/.test(src));
+  check("EXTERNAL_LINKS has a newsletterEndpoint slot", /newsletterEndpoint: null/.test(src));
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${pass + fail} assertions)`);
 if (fail) { console.log("\nFAILURES:"); fails.forEach(f => console.log("  ✗ " + f)); process.exit(1); }
 else console.log("All builder logic invariants hold. ✓");

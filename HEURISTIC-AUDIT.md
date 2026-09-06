@@ -42,7 +42,7 @@ header. Everything else is polish.
 
 ### 🔴 High
 
-**H1 — Tappable chips go blank after a tap (sticky hover on iOS).** Eight chip
+✔️ **Resolved — H1 — Tappable chips went blank after a tap (sticky hover on iOS).** Eight chip
 buttons pair `hover:text-[var(--surface)]` with an inline
 `style={{ backgroundColor: "var(--surface)" }}`. The inline style beats the
 `hover:bg-[var(--accent)]` class, so while the element is in `:hover` the label is
@@ -58,7 +58,7 @@ already guarantees the `var()` classes resolve), or set the hover background inl
 via a `data-` state. A QA source scan for "hover:text-surface + inline surface bg" would
 keep it from coming back.
 
-**H2 — The newsletter prompt promises an email that will never arrive.** After the
+✔️ **Resolved — H2 — The newsletter prompt promised an email that would never arrive.** After the
 user's first scrapbook save (`nextEarnedPrompt`, `:4111`: `scrapbookEntries >= 1`), a
 modal opens 1.5 s after the template closes offering "One template a month, free". The
 form only writes the address to the user's own localStorage (`NewsletterForm`, `:7320`,
@@ -70,7 +70,7 @@ very first save, which is the moment the app has just earned a little trust. *Fi
 pattern as `amazonReview`), and raise the first-fire threshold (e.g. second save or
 day 3). Screenshot: `35-after-save-prompt`.
 
-**H3 — Carried-in ingredients can land in the wrong slot.** Tap Chicken, Potatoes,
+✔️ **Resolved — H3 — Carried-in ingredients could land in the wrong slot.** Tap Chicken, Potatoes,
 Onion in the Builder, open Anytime Hash: the "From your kitchen" panel reads
 "Chicken → The Fat" and auto-selects "Chicken fat (schmaltz)"; the Protein slot stays
 empty even though it lists "Pulled chicken". `computeInitialPicksFromIngredients`
@@ -81,7 +81,7 @@ shallot, lemon) is exposed to the same ordering luck. *Fix:* consult
 add a harness case ("Chicken" → `protein` in Anytime Hash, never `fat`). Screenshot:
 `25-template-modal-builder`.
 
-**H4 — Urgency colour is inverted.** "Past its prime" (the most urgent state) is set
+✔️ **Resolved — H4 — Urgency colour was inverted.** "Past its prime" (the most urgent state) is set
 in the calm sage accent, while "Use today" / "1 day left" are terracotta, in both the
 Pantry list (`accentColor`, `:2657`: `danger → var(--accent)`) and the Home use-soon
 card (`:6809`: `sortKey < 0 → var(--accent)`). On Home the two sit on adjacent rows,
@@ -89,6 +89,9 @@ so green = worst, orange = less bad. The card *tint* does escalate (surface-aler
 the text colour contradicts its own background. *Fix:* past → `--spark-text` (or a
 dedicated `--danger-text` token), use-soon/warn → a mid tone (ink or a lighter
 terracotta). Screenshots: `16-pantry-demo`, `21-home-established`.
+
+All four High items were fixed in the follow-up commit on this branch; see the
+changelog entry "High fixes" below for what changed and what to verify.
 
 ### 🟠 Medium
 
@@ -482,6 +485,37 @@ polish list's spirit (no change of status).
   of the production build (71 screenshots, tap-target / text-size / overflow / contrast
   measurements). QA harness unchanged at 1638 green. The "Still open" list now points at
   the new section.
+
+## Changelog — High fixes from the September 2026 audit
+
+- **H1 — chips no longer blank after a tap.** The eight outlined accent chips that
+  filled on hover now use one shared `.chip-invert` class instead of Tailwind
+  `hover:bg/hover:text` pairs that lost to their inline surface background. The fill
+  is scoped to `@media (hover: hover)` (pointer devices), with `:active` press
+  feedback everywhere, so iOS sticky `:hover` can't strand a white-on-white label.
+  QA §28 scans the source so the pattern can't return.
+- **H2 — newsletter prompt gated on a real endpoint.** New
+  `EXTERNAL_LINKS.newsletterEndpoint` (null = the prompt never fires, mirroring the
+  review-link gate). `nextEarnedPrompt` takes `{ newsletter: false }` and then skips
+  the newsletter and lets the review fire on its own thresholds. When configured,
+  `NewsletterForm` POSTs `{ email }` to the endpoint (409 = already subscribed); the
+  local-storage save is now only a fallback. **Threshold change for the author to
+  confirm:** the newsletter now waits for the *second* save or build (or one pantry
+  item plus three days) instead of the first save.
+- **H3 — carried-in ingredients follow their role.** `computeInitialPicksFromIngredients`
+  now decides each ingredient's slot first, preferring the slot its role hint names
+  (`bestSlotForIngredient`) when several slots list the word; document order only
+  breaks ties the hints don't cover. Chicken → The Protein, not The Fat. QA §27 adds
+  the Hash case plus a sweep over every builder × Builder-tab ingredient (role-hinted
+  slot wins wherever it lists the ingredient; nothing named by a slot is dropped).
+- **H4 — urgency colour escalates with the card.** Past prime → `--spark-deep`
+  (4.94:1 on the alert tint, light), use-soon/warn → `--spark-text`, healthy →
+  `--accent` (was `--moss`, 3.45:1). Same mapping on the Pantry list, the Home
+  use-soon card, and the Builder chips (also closes L12's moss finding).
+- QA harness 1638 → 1656, all green; esbuild + Vite build verified; the four
+  fixes re-checked headlessly (chip colours after a tap, hover fill on a pointer
+  device, Hash slot mapping, Home/Pantry colours, no prompt after two saves with
+  the endpoint unset).
 
 ## Changelog — Home Screen icon (July 2026)
 
