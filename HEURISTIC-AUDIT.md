@@ -199,22 +199,84 @@ fold.** The tab most likely to be opened in a hurry ("is this still good?") puts
 at ~1550 px, under a 600 px temperature card, on a 4557 px page. *Fix:* search + category
 filter first, temperatures as a collapsed card ("Safe internal temperatures ›").
 
+### Proposed copy (for the author; not applied)
+
+The remaining Medium items are wording. Per the working rules these are proposals,
+not diffs. Each gives the current line, the proposal, and why.
+
+**M8 — Support intro when no link is configured** (`Support`, intro paragraph and
+the dashed "tell a friend" box). Today the intro promises "a few ways to give back"
+and the only element then begins "Or just tell a friend…".
+- Now: "If this app has helped you cook with confidence, here are a few ways to give
+  back. Just being here is support enough — anything beyond that is a generous bonus."
+  … "Or just tell a friend about the app — personal recommendations matter most."
+- Proposed, when zero cards render: "If this app has helped you cook with confidence,
+  the best thing you can do is tell someone about it. Just being here is support
+  enough." and the box: "Personal recommendations matter most."
+- Proposed, when at least one card renders: keep the current intro; the box keeps
+  its "Or just…" because it now follows something.
+- Implementation note: a `cardsShown` count already exists in effect (`reviewOk`,
+  `amounts.length`, `giftOk`); the intro can branch on it in one line.
+
+**M10 — name the book** (share text `:7133`-ish, native share `:6261`-ish, story
+footer, Support sign-off). The book's title never appears in the app and the share
+message calls the cookbook "Scrap Alchemy".
+- Share message, now: "I've been using this kitchen app from a great cookbook — Scrap
+  Alchemy by mg frank. It teaches you how to cook from what you have. Thought you'd
+  like it: {url}"
+- Proposed: "I've been using Scrap Alchemy, the kitchen app that goes with The
+  Alchemist's Scrapbook by M.G. Frank. It teaches you to cook from what you have.
+  Thought you'd like it: {url}"
+- Native recipe share text, now: "{title} — from Scrap Alchemy by mg frank".
+  Proposed: "{title} — made with Scrap Alchemy, the companion to The Alchemist's
+  Scrapbook".
+- Story footer, now: "— from Scrap Alchemy". Proposed: "— from The Alchemist's
+  Scrapbook" (the eyebrow above it already cites the chapter).
+- Support sign-off "Thank you for cooking with me. — mg": fine as is; consider
+  "— M.G. Frank" once, somewhere on the tab, so the name on the cover appears.
+- Author decision: "mg frank" vs "M.G. Frank" casing; the app currently uses the
+  lowercase form in two places.
+
+**M13 — the first Home screen repeats itself.** Three "not a recipe app" statements
+in the first viewport (welcome day 1, the How-this-works intro, and the header
+tagline's cousin), and two Builder CTAs while the guide's own step 1 is the pantry.
+- Welcome day 1, now: "This isn't a recipe app. It's a working kitchen — a place to
+  think with what you have. The book argues that resourcefulness is the real skill…"
+  Proposed: drop the first two sentences and open on the book's idea: "The book argues
+  that resourcefulness is the real skill, and that good cooking is mostly an act of
+  paying attention. Take a look around. Tap on an ingredient. See what surfaces."
+  (The guide directly below keeps the "not a recipe app" line, once.)
+- Guide CTA, now: "New here? This is the place to start: Build a meal" (→ Builder).
+  Proposed: "New here? Start with one jar: Stock your pantry" (→ Pantry), matching
+  step 1. If the Builder should stay the front door, then flip step 1 and step 2
+  instead so the guide and the button agree.
+- Welcome day 1 CTA "Try the meal builder" can stay; with the change above it is
+  the only Builder CTA on the screen.
+
+**L11 — template count.** Welcome day 5: "The seven templates in this book — pesto,
+hash, vinaigrette, popcorn, pasta, soup, confit — are scaffolds…" The app ships nine
+(plus The Alchemist's Meal and Stock from Scraps). Proposed: "The templates in this
+book — pesto, hash, vinaigrette, popcorn, pasta, soup, confit, stock, and the
+alchemist's meal itself — are scaffolds…", or keep "seven" if the book's own count
+is seven and the two extras are the app's additions (then say "seven templates from
+the book, plus two more here").
+
 ### 🟢 Low / polish
 
 - **L1 — Theme button.** Shows the current state, not the action; "Auto" is a desktop
   monitor icon on a phone; three-state cycle with no label. Settings already has a
   labelled control; consider dropping the header toggle.
-- **L2 — Mixed icon systems.** Emoji and text glyphs beside lucide icons: ✨ Load demo
+- ✔️ **Resolved — L2 — Mixed icon systems.** Emoji and text glyphs beside lucide icons: ✨ Load demo
   pantry, 📖, ☕, ★, ⓘ (Builder info buttons), ◦ bullets. Emoji render differently per OS.
-- **L3 — Search inputs.** Substitutions uses a raw `<input>` rather than the shared
+- ✔️ **Resolved — L3 — Search inputs.** Substitutions uses a raw `<input>` rather than the shared
   `SearchInput` (`:4963`), so it has no clear ×. No search field sets `type="search"`,
   `enterKeyHint="search"` or `autoCapitalize="none"`, so iOS capitalises the first letter
   and offers a "return" key.
-- **L4 — Dropdown labels truncate** at 390 px ("USE SOON…", "PAST PRI…"). Shorter
+- ✔️ **Resolved — L4 — Dropdown labels truncated** at 390 px ("USE SOON…", "PAST PRI…"). Shorter
   option labels ("Soonest", "Past prime (2)") or drop the "Show" prefix.
-- **L5 — Template modal mode tabs wrap** ("BUILD / MINE") at 390 px. "Build" alone, or
+- ✔️ **Resolved (with M6) — L5 — Template modal mode tabs wrapped** ("BUILD / MINE") at 390 px. "Build" alone, or
   less tracking.
-- **L6 — Duplicate quantities on the recipe and share cards.** "1–2 cloves 1–2 garlic
+- ✔️ **Resolved — L6 — Duplicate quantities on the recipe and share cards.** "1–2 cloves 1–2 garlic
   cloves", "2 Tbsp 2 Tbsp fried shallots": fifteen option names begin with an amount and
   also carry `overrideAmount` (`:406–410` and others). Strip the leading amount from the
   name when an override exists, or name options without amounts. Visible on the
@@ -223,28 +285,28 @@ filter first, temperatures as a collapsed card ("Safe internal temperatures ›"
   cards ≈ 4000 px of modal; "Pick 4 more" sits at the very bottom and doesn't say which.
   Two-column compact options under 640 px and a pinned "4 of 8 chosen" line (or sticky
   Build button) would help.
-- **L8 — Demo pantry has no "demo" marker.** Ten realistic jars land in the user's real
+- ✔️ **Resolved — L8 — Demo pantry had no "demo" marker.** Ten realistic jars land in the user's real
   pantry with no way to tell them apart later except "Clear pantry" at the bottom. Tag
   them (`demo: true`, small "sample" label) and offer "Remove sample items".
-- **L9 — Accessibility basics.** Modals have no `role="dialog"` / `aria-modal`, no focus
+- ✔️ **Partly resolved — L9 — Accessibility basics** (dialog role/label, Escape; focus trap, heading levels and reduced-motion remain). Modals have no `role="dialog"` / `aria-modal`, no focus
   trap, no Escape-to-close, no focus return; nine controls set `outline-none`; headings
   skip from h1 to h3; no `prefers-reduced-motion`. Keyboard focus shows the browser's
   default ring (visible, unthemed). Low on a phone; the site is also public on desktop.
-- **L10 — Font loading.** Google Fonts is pulled by a CSS `@import` inside a `<style>`
+- ✔️ **Resolved — L10 — Font loading.** Google Fonts is pulled by a CSS `@import` inside a `<style>`
   rendered by React (`:8047`), so the request starts only after the bundle runs; if it
   fails everything falls back silently. Move to `<link rel="preconnect">` + `<link>` in
   `index.html`, or self-host the three faces on DreamHost.
 - **L11 — Copy drift.** Welcome day 5 says "The seven templates in this book" (`:2097`);
   the app ships nine.
-- **L12 — Contrast (light theme).** `--moss` on white is 3.45:1 and is used for the
+- ✔️ **Resolved (with H4) — L12 — Contrast (light theme).** `--moss` on white is 3.45:1 and is used for the
   "ok" countdown text ("~4 weeks left") at 12–13 px, below AA for small text;
   `--spark-text` on `--surface-warm` is 4.03:1 (the italic use-soon note on warm cards).
   Everything else passes; the dark theme passes throughout. Use `--accent` (5.21:1) for
   the ok tone and darken `--spark-text` ~5%.
-- **L13 — Duplicate suggestions under the Past-prime filter.** The "Put them to use"
+- ✔️ **Resolved — L13 — Duplicate suggestions under the Past-prime filter.** The "Put them to use"
   callout lists the same template chips that every card beneath it repeats in "If your
   senses say yes".
-- **L14 — After "Add", the new item may be off-screen.** The list is sorted by use-soonest,
+- ✔️ **Resolved — L14 — After "Add", the new item could be off-screen.** The list is sorted by use-soonest,
   so a long-dated item lands at the bottom under a toast that says only "Added…". Scroll
   to it or flash its card.
 - **L15 — Redundant entry points.** Settings is in the header and the footer; Support is
@@ -488,6 +550,42 @@ polish list's spirit (no change of status).
   of the production build (71 screenshots, tap-target / text-size / overflow / contrast
   measurements). QA harness unchanged at 1638 green. The "Still open" list now points at
   the new section.
+
+## Changelog — Low batch (September 2026 audit, items L2/L3/L4/L6/L8/L9/L10/L13/L14)
+
+- **L2** — emoji and text glyphs replaced with the icon set: Sparkles (Load demo
+  pantry), Info (Builder ingredient info), Star / Coffee / BookOpen (Support cards
+  and buttons), Star / Mail (engagement prompts). QA scans for the glyphs.
+- **L3** — the shared `SearchInput` sets `enterKeyHint="search"`, no
+  auto-capitalisation, no autocorrect; Substitutions now uses it (so it has the
+  clear ×); the newsletter field gets `inputMode="email"` and no capitalisation.
+- **L4** — dropdown options carry an optional `short` label the trigger prefers
+  ("Soonest", "Newest", "A–Z"; "Past prime", "Use soon", …); counts stay in the list.
+- **L6** — new pure `cardIngredientLine(name, amount, scale)`: when an option's name
+  carries its own quantity ("2 Tbsp fried shallots", "1–2 garlic cloves", "Pinch of
+  red pepper flakes"), the card shows the name alone at 1× and, when scaled, the scaled
+  amount plus the name without its own quantity. Used by the recipe card, the saved
+  entry and the share preview. QA sweeps every amount-bearing option in
+  `BUILDER_RECIPES`.
+- **L8** — demo items carry `demo: true`, show a small "Sample" tag, and a "Remove
+  sample items" action (undoable) sits beside "Clear pantry" while any remain.
+- **L9 (part)** — every modal backdrop is `role="dialog"` + `aria-modal` with a label,
+  and Escape closes it (`useEscape`). Focus trapping, heading levels and
+  reduced-motion are still open.
+- **L10** — `index.html` preconnects to the font hosts and links the stylesheet, so
+  fonts start with the document; the jsx `@import` stays for the artifact build.
+- **L13** — the "Put them to use" callout under the Past-prime filter is gone; each
+  past-prime card already offers the same chips.
+- **L14** — after Add, the list scrolls to the new card if it isn't in view and
+  outlines it for 2.5 s (`addScrap` now returns the id).
+- QA harness 1695 → 1714. esbuild + Vite build verified; checked headlessly.
+- **Verify on the phone:** Pantry → Load demo pantry — cards say "Sample" and the
+  footer offers "Remove sample items"; Add → Umami → Parmesan Rinds → Save — the
+  list scrolls to the new card and it's outlined for a moment; Sort/Show triggers read
+  "Soonest" / "All" without truncation; Pesto → Build mine → Build — the pungency line
+  reads "1–2 garlic cloves" once, and at 2× "2–4 cloves garlic cloves" is not what you
+  see (the amount stays "1–2 cloves" because the book's range doesn't scale, and the
+  name loses its own number); Swaps — the search field has a clear ×.
 
 ## Changelog — Deletion, modals, custom items, countdowns, storage (September 2026 audit, items M5/M9/M11/M12/M14)
 

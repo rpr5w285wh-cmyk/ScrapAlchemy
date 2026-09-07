@@ -38,7 +38,7 @@ const NAMES = [
   "defaultTabOrder", "movableRange", "moveGroup", "moveTabInGroup", "flattenTabOrder", "isValidTabOrder",
   "enrichScrap", "enrichScraps", "templatesForScrapType",
   "isConfiguredLink", "tipAmounts", "editDistance", "closestMatches",
-  "matchTemplates", "scrapMatcherTags", "buildableTemplatesForScraps",
+  "matchTemplates", "scrapMatcherTags", "buildableTemplatesForScraps", "cardIngredientLine",
 ];
 // Also need the TEXTURE_CAVEATS / EXCLUSIONS data arrays textureCaveatFor closes over.
 function extractConst(name) {
@@ -1134,6 +1134,50 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   check("short labels: none longer than 9 characters", Object.values(short).every(l => l.length <= 9));
   check("short labels: Home stays Home", short.home === "Home");
   check("nav keeps the active tab clear of the fades", /btnLeft < viewLeft \+ TAB_FADE/.test(src) && /btnRight > viewRight - TAB_FADE/.test(src));
+}
+
+// ---- 32. Recipe-card lines never print a quantity twice --------------------------
+{
+  const L = (n, a, sc = 1) => F.cardIngredientLine(n, a, sc);
+  check("card: plain option keeps amount + name", JSON.stringify(L("Basil", "2 cups")) === JSON.stringify({ amount: "2 cups", name: "Basil" }));
+  check("card: name with its own quantity → name alone at 1×", JSON.stringify(L("2 Tbsp fried shallots", "2 Tbsp")) === JSON.stringify({ amount: "", name: "2 Tbsp fried shallots" }));
+  check("card: '1–2 garlic cloves' + '1–2 cloves' → name alone at 1×", L("1–2 garlic cloves", "1–2 cloves").amount === "");
+  check("card: 'Pinch of…' + 'Pinch' → name alone at 1×", L("Pinch of red pepper flakes", "Pinch").amount === "");
+  check("card: scaled → amount + name without its own quantity", JSON.stringify(L("2 Tbsp fried shallots", "4 Tbsp", 2)) === JSON.stringify({ amount: "4 Tbsp", name: "fried shallots" }));
+  check("card: scaled '1–2 garlic cloves' keeps 'garlic' (unit list must not eat the g)", JSON.stringify(L("1–2 garlic cloves", "1–2 cloves", 2)) === JSON.stringify({ amount: "1–2 cloves", name: "garlic cloves" }));
+  check("card: scaled '1 small shallot' → 'small shallot'", L("1 small shallot", "2 shallot", 2).name === "small shallot");
+  check("card: scaled '2 Tbsp capers' → 'capers'", L("2 Tbsp capers", "4 Tbsp", 2).name === "capers");
+  check("card: scaled 'Pinch of…' → 'Pinch' + 'of red pepper flakes'", JSON.stringify(L("Pinch of red pepper flakes", "Pinch", 2)) === JSON.stringify({ amount: "Pinch", name: "of red pepper flakes" }));
+  check("card: empty amount passes name through", L("Sliced avocado", "").amount === "" && L("Sliced avocado", "").name === "Sliced avocado");
+  // Sweep every builder option that has an overrideAmount: at 1× the rendered line never
+  // starts with the amount twice.
+  const recipes = eval("(" + extractObjConst("BUILDER_RECIPES") + ")");
+  let doubled = 0, swept = 0;
+  for (const b of Object.values(recipes)) for (const slot of b.slots) for (const o of slot.options) {
+    if (!o.overrideAmount) continue;
+    swept++;
+    const line = L(o.name, o.overrideAmount, 1);
+    const text = `${line.amount} ${line.name}`.trim().toLowerCase();
+    const amt = o.overrideAmount.toLowerCase();
+    if (line.amount && text.startsWith(amt + " " + amt)) doubled++;
+  }
+  check(`card: no doubled quantity across ${swept} amount-bearing options`, swept > 0 && doubled === 0);
+  check("recipe card and share preview use cardIngredientLine", (src.match(/cardIngredientLine\(choiceText\(slot\)/g) || []).length === 3);
+}
+
+// ---- 33. Low-batch source invariants --------------------------------------------
+{
+  check("no emoji / text glyph icons remain", !/[✨📖☕★✉ⓘ]/.test(src));
+  check("SearchInput sets enterKeyHint=search and no autocapitalize", /enterKeyHint="search"[\s\S]{0,80}autoCapitalize="none"/.test(src));
+  check("Substitutions uses the shared SearchInput", !/placeholder="Search… \(lemon, butter, parmesan…\)"\s*\n\s*className=/.test(src) && /<SearchInput value=\{query\} onChange=\{setQuery\} placeholder="Search… \(lemon/.test(src));
+  check("dropdown trigger prefers the short label", /current\.short \|\| current\.label/.test(src));
+  check("demo items carry demo: true and can be removed as a set", (src.match(/demo: true,/g) || []).length === 10 && /Remove sample items/.test(src) && /const removeDemo = /.test(src));
+  check("every modal backdrop is a labelled dialog", (src.match(/role="dialog"\n\s+aria-modal="true"\n\s+aria-label="/g) || []).length === 9);
+  check("modals close on Escape", (src.match(/useEscape\(on(Close|Dismiss)\);/g) || []).length === 9 && /function useEscape\(onClose\)/.test(src));
+  check("past-prime filter no longer repeats the per-card chips", !/Put them to use/.test(src));
+  check("newly added pantry item is brought into view", /data-scrap-id=\{s\.id\}/.test(src) && /setJustAdded\(id\)/.test(src));
+  const html = fs.readFileSync(__dirname + "/index.html", "utf8");
+  check("index.html preconnects and links the fonts", /rel="preconnect" href="https:\/\/fonts\.gstatic\.com" crossorigin/.test(html) && /fonts\.googleapis\.com\/css2\?family=Spectral/.test(html));
 }
 
 // ---- 31. Deletion, modals, custom items, storage layout (source invariants) --------

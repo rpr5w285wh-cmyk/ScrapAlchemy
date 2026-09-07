@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, Fragment } from "react";
-import { BookOpen, Clock, Sparkles, ChefHat, ArrowRight, X, Check, Flame, Snowflake, AlertTriangle, Archive, Plus, Trash2, Wand2, FileText, Quote, Plus as PlusIcon, Minus, BookMarked, Share2, Download, Copy, Heart, Moon, Sun, Monitor, Type, Settings, SlidersHorizontal, ChevronDown, ChevronLeft, ArrowUpDown, ListFilter, Refrigerator, Home as HomeIcon } from "lucide-react";
+import { BookOpen, Clock, Sparkles, ChefHat, ArrowRight, X, Check, Flame, Snowflake, AlertTriangle, Archive, Plus, Trash2, Wand2, FileText, Quote, Plus as PlusIcon, Minus, BookMarked, Share2, Download, Copy, Heart, Moon, Sun, Monitor, Type, Settings, SlidersHorizontal, ChevronDown, ChevronLeft, ArrowUpDown, ListFilter, Refrigerator, Home as HomeIcon, Info, Star, Coffee, Mail } from "lucide-react";
 
 
 // ============ EXTERNAL LINKS (author: fill these in before launch) ============
@@ -2400,7 +2400,7 @@ function enrichScraps(scraps, today = new Date().toISOString().slice(0, 10)) {
   return (scraps || []).map(s => enrichScrap(s, today));
 }
 
-function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, restoreAll, loaded, openDeepDive, onOpenTemplate, incModal, decModal }) {
+function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, restoreAll, removeDemo, loaded, openDeepDive, onOpenTemplate, incModal, decModal }) {
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState("expiry");   // expiry | added | name | location
@@ -2419,6 +2419,29 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
   // "why does it say that?" explanation travels with the status itself rather than
   // living only in the page footnote.
   const [explainStatus, setExplainStatus] = useState(null);
+
+  // The list is sorted by urgency, so a long-dated item lands far down under a toast
+  // that only says "Added". Bring the new card into view and outline it for a moment.
+  const [justAdded, setJustAdded] = useState(null);
+  useEffect(() => {
+    if (!justAdded) return;
+    // The Add modal has just closed; the page's scroll lock (body position: fixed)
+    // is released a frame later and restores the pre-modal position, so wait for
+    // that before moving the page ourselves.
+    const scrollTimer = setTimeout(() => {
+      const el = document.querySelector(`[data-scrap-id="${justAdded}"]`);
+      if (!el || document.body.style.position === "fixed") return;
+      const nav = document.querySelector("nav");
+      const navH = nav ? nav.getBoundingClientRect().height : 0;
+      const rect = el.getBoundingClientRect();
+      // Only scroll if the card isn't already fully visible (page scroll set directly).
+      if (rect.top < navH || rect.bottom > window.innerHeight) {
+        window.scrollTo({ top: rect.top + window.scrollY - navH - 12, behavior: "smooth" });
+      }
+    }, 350);
+    const t = setTimeout(() => setJustAdded(null), 2800);
+    return () => { clearTimeout(scrollTimer); clearTimeout(t); };
+  }, [justAdded]);
 
   // `verb` is what the user said happened — "used", "discarded" or "removed" — and the
   // undo strip echoes it, so the three finishing actions read as three outcomes.
@@ -2467,8 +2490,6 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
   // Custom items (no known shelf-life) are never counted as past prime.
   const pastPrime = enriched.filter(s => !s.isCustom && s.sortKey < 0);
 
-  // Templates that would help use up the past-prime items, ranked by how many they serve.
-  const useUpTemplates = useMemo(() => templatesForScraps(pastPrime).slice(0, 3), [pastPrime]);
 
   // Counts for the filter control (so options can show how many match, and we can hide
   // status filters that would be empty).
@@ -2559,9 +2580,9 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
             value={sortBy}
             onChange={setSortBy}
             options={[
-              { value: "expiry", label: "Use soonest" },
-              { value: "added", label: "Recently added" },
-              { value: "name", label: "Name (A–Z)" },
+              { value: "expiry", label: "Use soonest", short: "Soonest" },
+              { value: "added", label: "Recently added", short: "Newest" },
+              { value: "name", label: "Name (A–Z)", short: "A–Z" },
               { value: "location", label: "Location" },
             ]}
           />
@@ -2573,42 +2594,14 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
             active={filterBy !== "all"}
             align="right"
             options={[
-              { value: "all", label: `All (${filterCounts.all})` },
-              ...(filterCounts.past > 0 ? [{ value: "past", label: `Past prime (${filterCounts.past})` }] : []),
-              ...(filterCounts.usesoon > 0 ? [{ value: "usesoon", label: `Use soon (${filterCounts.usesoon})` }] : []),
-              ...(filterCounts.fridge > 0 ? [{ value: "fridge", label: `Fridge (${filterCounts.fridge})` }] : []),
-              ...(filterCounts.freezer > 0 ? [{ value: "freezer", label: `Freezer (${filterCounts.freezer})` }] : []),
-              ...(filterCounts.pantry > 0 ? [{ value: "pantry", label: `Pantry (${filterCounts.pantry})` }] : []),
+              { value: "all", label: `All (${filterCounts.all})`, short: "All" },
+              ...(filterCounts.past > 0 ? [{ value: "past", label: `Past prime (${filterCounts.past})`, short: "Past prime" }] : []),
+              ...(filterCounts.usesoon > 0 ? [{ value: "usesoon", label: `Use soon (${filterCounts.usesoon})`, short: "Use soon" }] : []),
+              ...(filterCounts.fridge > 0 ? [{ value: "fridge", label: `Fridge (${filterCounts.fridge})`, short: "Fridge" }] : []),
+              ...(filterCounts.freezer > 0 ? [{ value: "freezer", label: `Freezer (${filterCounts.freezer})`, short: "Freezer" }] : []),
+              ...(filterCounts.pantry > 0 ? [{ value: "pantry", label: `Pantry (${filterCounts.pantry})`, short: "Pantry" }] : []),
             ]}
           />
-        </div>
-      )}
-
-      {/* When viewing past-prime items, offer the "use them up" template shortcuts. */}
-      {filterBy === "past" && useUpTemplates.length > 0 && onOpenTemplate && (
-        <div className="border border-[var(--accent)] rounded-[3px] p-4" style={{ backgroundColor: "var(--surface-alert)" }}>
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="w-4 h-4 text-[var(--accent)] mt-0.5 flex-shrink-0" />
-            <div className="flex-1">
-              <div className="font-display text-sm text-[var(--ink)] font-bold mb-1">Put them to use</div>
-              <p className="text-xs text-[var(--ink)] leading-relaxed">
-                Trust your senses — if it smells right, looks right, and the storage was sound, you may still have something usable. These templates fit what's here:
-              </p>
-              <div className="flex flex-wrap gap-1.5 mt-2.5">
-                {useUpTemplates.map(name => (
-                  <button
-                    key={name}
-                    onClick={() => onOpenTemplate(name)}
-                    className="text-xs px-2 py-1.5 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition tap-sm"
-                    style={{ backgroundColor: "var(--surface)" }}
-                  >
-                    {name}
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -2644,7 +2637,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
               className="text-xs uppercase tracking-widest px-3 py-1.5 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] transition font-semibold"
               style={{ backgroundColor: "transparent" }}
             >
-              ✨ Load demo pantry
+              <span className="inline-flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5" /> Load demo pantry</span>
             </button>
           )}
         </div>
@@ -2732,8 +2725,9 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                 </div>
               ) : (
               <div
-                className="border border-[var(--border)] rounded-[3px] p-4"
-                style={{ backgroundColor: bgTone }}
+                data-scrap-id={s.id}
+                className="border rounded-[3px] p-4 transition-colors"
+                style={{ backgroundColor: bgTone, borderColor: justAdded === s.id ? "var(--accent)" : "var(--border)" }}
               >
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
@@ -2742,8 +2736,11 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                         {s.label || s.type}
                       </div>
                     </div>
-                    {s.label && (
-                      <div className="text-xs text-[var(--ink-soft)] truncate">{s.type}</div>
+                    {(s.label || s.demo) && (
+                      <div className="text-xs text-[var(--ink-soft)] truncate">
+                        {s.label ? s.type : null}
+                        {s.demo && <span className={`uppercase tracking-widest ${s.label ? "ml-2" : ""}`} style={{ fontSize: "11px", color: "var(--ink-faint)" }}>Sample</span>}
+                      </div>
                     )}
                   </div>
                   <button
@@ -2871,14 +2868,24 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
           <div className="mt-2 not-italic text-[var(--ink-faint)]" style={{ fontSize: "11px" }}>
             Countdowns use the cautious end of each storage range. See Storage &amp; Safety for the full ranges.
           </div>
-          {clearAll && (
-            <div className="mt-3 not-italic">
-              <button
-                onClick={requestClearAll}
-                className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline tap"
-              >
-                Clear pantry
-              </button>
+          {(clearAll || (removeDemo && enriched.some(s => s.demo))) && (
+            <div className="mt-3 not-italic flex items-center justify-center gap-4 flex-wrap">
+              {removeDemo && enriched.some(s => s.demo) && (
+                <button
+                  onClick={removeDemo}
+                  className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline tap"
+                >
+                  Remove sample items
+                </button>
+              )}
+              {clearAll && (
+                <button
+                  onClick={requestClearAll}
+                  className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline tap"
+                >
+                  Clear pantry
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -2887,7 +2894,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
       {/* Add modal */}
       {adding && (
         <AddScrapModal
-          onAdd={(scrap) => { addScrap(scrap); setAdding(false); }}
+          onAdd={(scrap) => { const id = addScrap(scrap); if (id) setJustAdded(id); setAdding(false); }}
           onClose={() => setAdding(false)}
           incModal={incModal}
           decModal={decModal}
@@ -2976,6 +2983,16 @@ function PastPrimeSuggestion({ scrap, onOpenTemplate, onUsedUp, onDiscard }) {
   );
 }
 
+// Close a modal on Escape (keyboard users on the desktop site; harmless on a phone).
+function useEscape(onClose) {
+  useEffect(() => {
+    if (!onClose) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+}
+
 function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = "" }) {
   const [step, setStep] = useState(1);
   const [type, setType] = useState(null);
@@ -2991,6 +3008,7 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   const categories = Array.from(new Set(SCRAP_TYPES.map(s => s.category)));
   const typeQ = typeQuery.trim().toLowerCase();
@@ -3035,6 +3053,9 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Add a scrap"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onClose}
     >
@@ -3607,7 +3628,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                   title={`Learn about ${item}`}
                   aria-label={`Learn about ${item}`}
                 >
-                  <span className="text-xs font-bold">ⓘ</span>
+                  <Info className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -3813,6 +3834,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   // Reset the content scroll to the top whenever the tab changes, so switching to a
   // shorter tab doesn't leave you stranded mid-scroll or in dead space.
@@ -3823,6 +3845,9 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Template"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onClose}
     >
@@ -4231,6 +4256,25 @@ function isSkipOption(name) {
   return /^(skip|none\b|no )/i.test((name || "").trim());
 }
 
+// Recipe-card line for a chosen option. Some option NAMES carry their own quantity
+// ("2 Tbsp fried shallots", "1–2 garlic cloves", "Pinch of red pepper flakes") and
+// also have an overrideAmount, so the card used to print it twice ("2 Tbsp 2 Tbsp
+// fried shallots"). At the base batch the name alone is right; when the batch is
+// scaled, show the scaled amount and drop the name's own leading quantity. Pure.
+function cardIngredientLine(name, amount, scale = 1) {
+  const n = String(name || "").trim();
+  const a = String(amount || "").trim();
+  if (!a) return { amount: "", name: n };
+  const startsWithAmount = n.toLowerCase().startsWith(a.toLowerCase());
+  const startsWithNumber = /^[\d½¼¾⅓⅔]/.test(n);
+  if (!startsWithAmount && !startsWithNumber) return { amount: a, name: n };
+  if (scale === 1) return { amount: "", name: n };
+  let stripped = startsWithAmount
+    ? n.slice(a.length).trim()
+    : n.replace(/^[\d½¼¾⅓⅔][\d½¼¾⅓⅔–\-\/.]*\s*(?:(?:tbsp|tsp|cups?|oz|g|ml|cloves?)\b\.?)?\s*/i, "").trim();
+  return { amount: a, name: stripped || n };
+}
+
 // Collision-proof id: Date.now() alone collides when two items are created in the
 // same millisecond (two quick saves, a loop, two pantry adds). Append a random
 // suffix so ids are unique. (Removing one entry by id must never remove another.)
@@ -4554,7 +4598,9 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
     }
     const amount = slot.ratio * scale;
     const rounded = amount === Math.floor(amount) ? amount : amount.toFixed(2);
-    return `${rounded} ${slot.unit}`;
+    // "2 cup" → "2 cups" for the countable units the book uses.
+    const unit = (slot.unit === "cup" || slot.unit === "clove") && Number(rounded) !== 1 ? `${slot.unit}s` : slot.unit;
+    return `${rounded} ${unit}`;
   };
 
   const handleSave = () => {
@@ -4562,10 +4608,11 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
     if (saved) return; // Already saved this exact recipe
     const ingredients = builder.slots.map(slot => {
       const opt = choiceAmountOpt(slot);
+      const line = cardIngredientLine(choiceText(slot), formatAmount(slot, opt), scale);
       return {
         slotLabel: slot.label,
-        choice: choiceText(slot),
-        amount: formatAmount(slot, opt),
+        choice: line.name,
+        amount: line.amount,
       };
     });
     addToScrapbook({
@@ -4597,13 +4644,16 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
           <div className="space-y-2">
             {builder.slots.map(slot => {
               const opt = choiceAmountOpt(slot);
+              const line = cardIngredientLine(choiceText(slot), formatAmount(slot, opt), scale);
               return (
                 <div key={slot.id} className="flex items-baseline gap-3">
-                  <div className="font-display text-sm text-[var(--accent)] font-semibold whitespace-nowrap">
-                    {formatAmount(slot, opt)}
-                  </div>
+                  {line.amount && (
+                    <div className="font-display text-sm text-[var(--accent)] font-semibold whitespace-nowrap">
+                      {line.amount}
+                    </div>
+                  )}
                   <div className="flex-1 text-sm text-[var(--ink)]">
-                    {choiceText(slot)}
+                    {line.name}
                   </div>
                 </div>
               );
@@ -4662,10 +4712,11 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
                   kind: "builder",
                   ingredients: builder.slots.map(slot => {
                     const opt = choiceAmountOpt(slot);
+                    const line = cardIngredientLine(choiceText(slot), formatAmount(slot, opt), scale);
                     return {
                       slotLabel: slot.label,
-                      choice: choiceText(slot),
-                      amount: formatAmount(slot, opt),
+                      choice: line.name,
+                      amount: line.amount,
                     };
                   }),
                 };
@@ -5097,13 +5148,7 @@ function SubstitutionFinder({ openDeepDive }) {
         <p className="text-sm text-[var(--ink-soft)] italic">Substitute for what the ingredient does — its role — not its name.</p>
       </div>
 
-      <input
-        type="text"
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        placeholder="Search… (lemon, butter, parmesan…)"
-        className="w-full px-4 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-[3px] focus:border-[var(--accent)] outline-none text-[var(--ink)]"
-      />
+      <SearchInput value={query} onChange={setQuery} placeholder="Search… (lemon, butter, parmesan…)" />
 
       {/* No results — explain the role-based way of thinking and route to real content */}
       {query && filtered.length === 0 && (() => {
@@ -5570,6 +5615,7 @@ function ScrapbookAddModal({ onAdd, onClose, incModal, decModal }) {
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   const canSave = title.trim() && (base.trim() || texture.trim() || flavor.trim());
 
@@ -5589,6 +5635,9 @@ function ScrapbookAddModal({ onAdd, onClose, incModal, decModal }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Save a discovery"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onClose}
     >
@@ -5767,7 +5816,7 @@ function Dropdown({ label, value, options, onChange, active = false, align = "le
         aria-label={label}
       >
         {Icon && <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--accent)" }} />}
-        <span className="truncate text-left min-w-0 flex-1">{current ? current.label : ""}</span>
+        <span className="truncate text-left min-w-0 flex-1">{current ? (current.short || current.label) : ""}</span>
         <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} style={{ color: "var(--accent)" }} />
       </button>
       {open && (
@@ -5825,6 +5874,10 @@ function SearchInput({ value, onChange, placeholder }) {
     <div className="relative">
       <input
         type="text"
+        enterKeyHint="search"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
@@ -6047,7 +6100,7 @@ function Support({ openShareApp, engagement }) {
         {reviewOk && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
-            <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">★</div>
+            <Star className="w-7 h-7 text-[var(--accent)] flex-shrink-0" />
             <div className="flex-1">
               <h4 className="font-display text-lg text-[var(--ink)] mb-1">Leave a review</h4>
               <p className="text-xs italic text-[var(--ink-soft)]">Free. Worth more than money to a small author.</p>
@@ -6061,7 +6114,7 @@ function Support({ openShareApp, engagement }) {
             className="w-full px-4 py-2.5 text-sm uppercase tracking-widest font-bold flex items-center justify-center gap-2 transition"
             style={{ backgroundColor: "var(--spark)", color: "var(--on-spark)" }}
           >
-            ★ Review on Amazon
+            <Star className="w-4 h-4" /> Review on Amazon
           </button>
         </div>
         )}
@@ -6070,7 +6123,7 @@ function Support({ openShareApp, engagement }) {
         {amounts.length > 0 && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
-            <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">☕</div>
+            <Coffee className="w-7 h-7 text-[var(--accent)] flex-shrink-0" />
             <div className="flex-1">
               <h4 className="font-display text-lg text-[var(--ink)] mb-1">Tip a coffee</h4>
               <p className="text-xs italic text-[var(--ink-soft)]">Buys me an hour of writing time.</p>
@@ -6104,7 +6157,7 @@ function Support({ openShareApp, engagement }) {
         {giftOk && (
         <div className="border border-[var(--border)] rounded-[3px] p-5" style={{ backgroundColor: "var(--surface)" }}>
           <div className="flex items-start gap-3 mb-3">
-            <div className="font-display text-3xl text-[var(--accent)] flex-shrink-0">📖</div>
+            <BookOpen className="w-7 h-7 text-[var(--accent)] flex-shrink-0" />
             <div className="flex-1">
               <h4 className="font-display text-lg text-[var(--ink)] mb-1">Gift the book</h4>
               <p className="text-xs italic text-[var(--ink-soft)]">For someone who'd love it as much as you do.</p>
@@ -6118,7 +6171,7 @@ function Support({ openShareApp, engagement }) {
             className="w-full px-4 py-2.5 text-sm uppercase tracking-widest border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert font-bold flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--surface)" }}
           >
-            📖 Gift on Amazon
+            <BookOpen className="w-4 h-4" /> Gift on Amazon
           </button>
         </div>
         )}
@@ -6382,6 +6435,7 @@ function ShareCardModal({ entry, onClose, incModal, decModal }) {
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   // Render the card on mount
   useEffect(() => {
@@ -6461,6 +6515,9 @@ function ShareCardModal({ entry, onClose, incModal, decModal }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Share recipe card"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onClose}
     >
@@ -6551,10 +6608,14 @@ function ScrapbookEntryModal({ entry, onClose, onDelete, incModal, decModal, ope
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Scrapbook entry"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onClose}
     >
@@ -6685,6 +6746,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   // When chaining from one ingredient to another, reset scroll to the top so the
   // new content starts at its header rather than mid-page.
@@ -6697,6 +6759,9 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ingredient deep-dive"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onClose}
     >
@@ -7079,6 +7144,7 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   const themeOptions = [
     { id: "light", label: "Light", icon: Sun },
@@ -7094,6 +7160,9 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Settings"
       style={{ backgroundColor: "rgba(20, 14, 10, 0.85)" }}
       onClick={onClose}
     >
@@ -7318,6 +7387,7 @@ function ShareAppModal({ onClose, incModal, decModal }) {
     return () => { if (decModal) decModal(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  useEscape(onClose);
 
   const APP_URL = EXTERNAL_LINKS.appUrl;
   const SHARE_TEXT = `I've been using this kitchen app from a great cookbook — Scrap Alchemy by mg frank. It teaches you how to cook from what you have. Thought you'd like it: ${APP_URL}`;
@@ -7362,6 +7432,9 @@ function ShareAppModal({ onClose, incModal, decModal }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 overflow-hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Share the app"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onClose}
     >
@@ -7444,16 +7517,17 @@ function ShareAppModal({ onClose, incModal, decModal }) {
 
 // Soft prompt that appears at engagement milestones for review/newsletter
 function EngagementPrompt({ kind, onDismiss, onAct }) {
+  useEscape(onDismiss);
   if (!kind) return null;
 
   const config = kind === "review" ? {
-    icon: "★",
+    Icon: Star,
     title: "Enjoying Scrap Alchemy?",
     body: "If this app has helped you cook with confidence, a one-line review on Amazon helps other home cooks discover the book. It takes 30 seconds and means the world to a small author.",
     actLabel: "Leave a review",
     secondaryLabel: "Maybe later",
   } : {
-    icon: "✉",
+    Icon: Mail,
     title: "One template a month, free",
     body: "Join the newsletter to get one new template, story, or kitchen experiment per month. No spam, ever. Unsubscribe anytime.",
     actLabel: "Sign me up",
@@ -7463,6 +7537,9 @@ function EngagementPrompt({ kind, onDismiss, onAct }) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-label="A note from the author"
       style={{ backgroundColor: "rgba(30, 36, 30, 0.82)" }}
       onClick={onDismiss}
     >
@@ -7473,7 +7550,7 @@ function EngagementPrompt({ kind, onDismiss, onAct }) {
       >
         <div className="p-5 sm:p-6">
           <div className="text-center mb-4">
-            <div className="font-display text-3xl text-[var(--accent)] mb-1">{config.icon}</div>
+            <config.Icon className="w-8 h-8 text-[var(--accent)] mx-auto mb-2" />
             <h3 className="font-display text-xl text-[var(--ink)]">{config.title}</h3>
           </div>
           <p className="text-sm text-[var(--ink)] leading-relaxed mb-5 italic text-center">
@@ -7582,6 +7659,10 @@ function NewsletterForm({ onComplete }) {
     <div className="flex flex-col gap-2">
       <input
         type="email"
+        inputMode="email"
+        autoCapitalize="none"
+        autoCorrect="off"
+        autoComplete="email"
         value={email}
         onChange={e => { setEmail(e.target.value); if (error) setError(""); }}
         placeholder="your@email.com"
@@ -8046,9 +8127,11 @@ export default function App() {
   };
 
   const addScrap = (scrap) => {
-    setScraps(prev => [...prev, { ...scrap, id: makeId() }]);
+    const id = makeId();
+    setScraps(prev => [...prev, { ...scrap, id }]);
     bumpEngagement("pantryAdds");
     showToast(`Added ${scrap.label || scrap.type}`);
+    return id; // so the list can scroll to / highlight the new card
   };
   const removeScrap = (id, silent = false) => {
     const removed = scraps.find(s => s.id === id);
@@ -8065,6 +8148,15 @@ export default function App() {
         dismissToast();
       });
     }
+  };
+  // Drop only the sample items loaded by "Load demo pantry" (they carry demo: true),
+  // leaving anything the user added. Undoable from the toast.
+  const removeDemo = () => {
+    const samples = scraps.filter(s => s.demo);
+    if (!samples.length) return;
+    const snapshot = scraps;
+    setScraps(prev => prev.filter(s => !s.demo));
+    showToast(`Removed ${samples.length} sample item${samples.length > 1 ? "s" : ""}`, () => { setScraps(snapshot); dismissToast(); });
   };
   const clearAll = (silent = false) => {
     const snapshot = scraps;
@@ -8137,6 +8229,7 @@ export default function App() {
       // Healthy, plenty of time
       {
         id: "demo-1",
+        demo: true,
         type: "Cooked Infused Oil (confit oil)",
         location: "fridge",
         dateStored: daysAgo(7),
@@ -8146,6 +8239,7 @@ export default function App() {
       // Healthy, plenty of time
       {
         id: "demo-2",
+        demo: true,
         type: "Fried Shallots",
         location: "pantry",
         dateStored: daysAgo(3),
@@ -8155,6 +8249,7 @@ export default function App() {
       // Healthy, plenty of time
       {
         id: "demo-3",
+        demo: true,
         type: "Rendered Fat (bacon, chicken)",
         location: "fridge",
         dateStored: daysAgo(20),
@@ -8164,6 +8259,7 @@ export default function App() {
       // Healthy, plenty of time (freezer)
       {
         id: "demo-4",
+        demo: true,
         type: "Parmesan Rinds",
         location: "freezer",
         dateStored: daysAgo(60),
@@ -8173,6 +8269,7 @@ export default function App() {
       // Healthy
       {
         id: "demo-5",
+        demo: true,
         type: "Pickle Brine",
         location: "fridge",
         dateStored: daysAgo(30),
@@ -8182,6 +8279,7 @@ export default function App() {
       // Warning zone (~3 days left)
       {
         id: "demo-6",
+        demo: true,
         type: "Soup or Stew",
         location: "fridge",
         dateStored: daysAgo(2),
@@ -8191,6 +8289,7 @@ export default function App() {
       // Warning zone — pesto, almost gone
       {
         id: "demo-7",
+        demo: true,
         type: "Relishes & Sauces",
         location: "fridge",
         dateStored: daysAgo(4),
@@ -8200,6 +8299,7 @@ export default function App() {
       // Past prime — will show "If your senses say yes" suggestions
       {
         id: "demo-8",
+        demo: true,
         type: "Vegetable/Fruit Confit",
         location: "fridge",
         dateStored: daysAgo(28),
@@ -8209,6 +8309,7 @@ export default function App() {
       // Past prime — leftover meat
       {
         id: "demo-9",
+        demo: true,
         type: "Cooked Meat or Poultry",
         location: "fridge",
         dateStored: daysAgo(6),
@@ -8218,6 +8319,7 @@ export default function App() {
       // Long-haul freezer item
       {
         id: "demo-10",
+        demo: true,
         type: "Vegetable Scrap Bag (for stock)",
         location: "freezer",
         dateStored: daysAgo(45),
@@ -8591,6 +8693,7 @@ export default function App() {
             removeScrap={removeScrap}
             seedDemo={seedDemo}
             clearAll={clearAll}
+            removeDemo={removeDemo}
             restoreAll={restoreAll}
             loaded={scrapsLoaded}
             openDeepDive={openIngredientDeepDive}
