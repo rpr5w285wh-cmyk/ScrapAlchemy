@@ -15,6 +15,10 @@ const EXTERNAL_LINKS = {
   // Tip links (Stripe payment links / Ko-fi / Buy Me a Coffee), one per amount, e.g.
   // { 3: "https://buy.stripe.com/aaa", 5: "https://buy.stripe.com/bbb", 10: "..." }
   tips: null,
+  // Newsletter signup endpoint (https URL that accepts POST JSON { email }), e.g. a
+  // Buttondown/ConvertKit form endpoint or a tiny relay. While null the newsletter
+  // prompt never fires, so the app never promises an email it can't send.
+  newsletterEndpoint: null,
   // Where the app lives (used in the share message).
   appUrl: "https://www.mgfrankbooks.com",
 };
@@ -2559,7 +2563,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   <button
                     key={name}
                     onClick={() => onOpenTemplate(name)}
-                    className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 hover:bg-[var(--accent)] hover:text-[var(--surface)] active:bg-[var(--accent)] active:text-[var(--surface)] transition"
+                    className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {name}
@@ -2653,10 +2657,14 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
               status.tone === "danger" ? "var(--surface-alert)" :
               status.tone === "usesoon" ? "var(--surface-warm)" :
               status.tone === "warn" ? "var(--surface-warm)" : "var(--surface)";
+            // Text colour escalates with the card tint: past prime is the deepest
+            // terracotta, use-soon/warn the readable terracotta, healthy the sage accent.
+            // (Past prime used to be sage — the calmest colour on the most urgent row —
+            // and the healthy countdown used --moss, which fails AA at this size.)
             const accentColor =
-              status.tone === "danger" ? "var(--accent)" :
+              status.tone === "danger" ? "var(--spark-deep)" :
               status.tone === "usesoon" ? "var(--spark-text)" :
-              status.tone === "warn" ? "var(--spark-text)" : "var(--moss)";
+              status.tone === "warn" ? "var(--spark-text)" : "var(--accent)";
             // When sorting by location, print a header at the start of each new group.
             const showLocationHeader = sortBy === "location" && (idx === 0 || visible[idx - 1].location !== s.location);
             return (
@@ -2899,7 +2907,7 @@ function PastPrimeSuggestion({ scrap, onOpenTemplate, onUsedUp, onDiscard }) {
           <button
             key={name}
             onClick={() => onOpenTemplate && onOpenTemplate(name)}
-            className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 hover:bg-[var(--accent)] hover:text-[var(--surface)] active:bg-[var(--accent)] active:text-[var(--surface)] transition"
+            className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition"
             style={{ backgroundColor: "var(--surface)" }}
           >
             {name}
@@ -3383,7 +3391,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                   {status.zone !== "custom" && (
                     <span
                       className="text-[10px] uppercase tracking-widest"
-                      style={{ color: isSel ? "var(--surface)" : (status.tone === "warn" || status.tone === "usesoon") ? "var(--spark-text)" : "var(--moss)" }}
+                      style={{ color: isSel ? "var(--surface)" : (status.tone === "warn" || status.tone === "usesoon") ? "var(--spark-text)" : "var(--accent)" }}
                     >
                       · {status.zone === "usesoon" ? "Use soon" : status.text}
                     </span>
@@ -3431,7 +3439,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                   <button
                     key={item}
                     onClick={() => { toggle(item); setQuery(""); }}
-                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] transition"
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert transition"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {item}
@@ -3911,20 +3919,36 @@ function computeInitialPicksFromIngredients(builder, ingredients, existing = {})
   if (!builder || !ingredients || ingredients.length === 0) return existing;
   const initial = { ...existing };
   // Normalize ingredient names to lowercase singular-ish keywords.
-  const words = ingredients.map(i => i.toLowerCase().replace(/\/.*$/, "").trim());
+  const words = ingredients.map(i => i.toLowerCase().replace(/\/.*$/, "").trim()).filter(w => w.length >= 3);
+  // Options in a slot that name this ingredient. Don't let a single carried-in
+  // ingredient auto-select a COMBO option just because the combo name happens to
+  // contain that word (e.g. carrot should not trigger "Apples + parsnips + carrots",
+  // which also drags in apples & parsnips).
+  const optionsNaming = (slot, w) =>
+    slot.options.filter(opt => !isComboName(opt.name) && opt.name.toLowerCase().includes(w));
+  // First decide WHICH slot each ingredient belongs to. Several slots can name the
+  // same word ("chicken": The Fat lists "Chicken fat (schmaltz)", The Protein lists
+  // "Pulled chicken"); document order used to win, so Chicken became the fat and the
+  // protein slot stayed empty. The slot the ingredient's ROLE points at wins; document
+  // order only breaks ties the role hints don't cover.
+  const wordsBySlot = {};
+  for (const w of words) {
+    const candidates = builder.slots.filter(s => !initial[s.id] && optionsNaming(s, w).length > 0);
+    if (!candidates.length) continue;
+    const preferred = bestSlotForIngredient(builder, w);
+    const slot = candidates.find(s => s.id === preferred) || candidates[0];
+    (wordsBySlot[slot.id] = wordsBySlot[slot.id] || []).push(w);
+  }
   for (const slot of builder.slots) {
     if (initial[slot.id]) continue; // don't override an existing pick (e.g. from scraps)
+    const ws = wordsBySlot[slot.id];
+    if (!ws) continue;
     // A slot can hold MULTIPLE carried-in ingredients (e.g. carrot AND shallot both
-    // confit in The Ingredient). Collect every option that matches any carried-in
-    // word — not just the first — or one ingredient silently wins and the rest vanish.
-    const matches = slot.options.filter(opt => {
-      // Don't let a single carried-in ingredient auto-select a COMBO option just
-      // because the combo name happens to contain that word (e.g. carrot should not
-      // trigger "Apples + parsnips + carrots", which also drags in apples & parsnips).
-      if (isComboName(opt.name)) return false;
-      const optName = opt.name.toLowerCase();
-      return words.some(w => w.length >= 3 && optName.includes(w));
-    });
+    // confit in The Ingredient). Collect every option that matches any of the words
+    // assigned here — not just the first — or one ingredient silently wins.
+    const matches = slot.options.filter(opt =>
+      !isComboName(opt.name) && ws.some(w => opt.name.toLowerCase().includes(w))
+    );
     if (matches.length === 1) initial[slot.id] = matches[0].name;
     else if (matches.length > 1) initial[slot.id] = matches.map(m => m.name);
   }
@@ -4108,16 +4132,23 @@ function makeId() {
 // invariants are testable. Returns "newsletter" | "review" | null.
 // Rules: newsletter fires first (lower friction); review only AFTER newsletter is
 // resolved (shown or signed up); each fires once; thresholds gate on activity.
-function nextEarnedPrompt(engagement, daysInstalled) {
+// opts.newsletter === false means the newsletter has nowhere to send addresses yet
+// (no endpoint configured): the newsletter prompt is skipped entirely and counts as
+// resolved for the review's ordering rule, so the review can still fire when earned.
+// The newsletter waits for the SECOND save or build (or a pantry item plus three
+// days) — the first save is the moment the app has only just earned some trust.
+function nextEarnedPrompt(engagement, daysInstalled, opts = {}) {
   const e = engagement || {};
-  if (!e.newsletterPromptShown && !e.newsletterSignedUp) {
+  const newsletterAvailable = opts.newsletter !== false;
+  const newsletterResolved = !newsletterAvailable || !!e.newsletterPromptShown || !!e.newsletterSignedUp;
+  if (!newsletterResolved) {
     const earned =
-      (e.scrapbookEntries || 0) >= 1 ||
+      (e.scrapbookEntries || 0) >= 2 ||
       (e.recipesBuilt || 0) >= 2 ||
       ((e.pantryAdds || 0) >= 1 && daysInstalled >= 3);
     if (earned) return "newsletter";
   }
-  if (!e.reviewPromptShown && !e.reviewPromptDismissed && (e.newsletterPromptShown || e.newsletterSignedUp)) {
+  if (!e.reviewPromptShown && !e.reviewPromptDismissed && newsletterResolved) {
     const earned =
       (e.scrapbookEntries || 0) >= 2 ||
       (e.recipesBuilt || 0) >= 3 ||
@@ -4980,7 +5011,7 @@ function SubstitutionFinder({ openDeepDive }) {
                   <button
                     key={item}
                     onClick={() => setQuery(item)}
-                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] transition"
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert transition"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {item}
@@ -5904,7 +5935,7 @@ function Support({ openShareApp, engagement }) {
                 <button
                   key={amount}
                   onClick={() => handleTip(amount)}
-                  className="px-3 py-2.5 text-sm uppercase tracking-widest border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] font-bold transition"
+                  className="px-3 py-2.5 text-sm uppercase tracking-widest border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert font-bold transition"
                   style={{ backgroundColor: "var(--surface)" }}
                 >
                   ${amount}
@@ -5930,7 +5961,7 @@ function Support({ openShareApp, engagement }) {
           </p>
           <button
             onClick={() => window.open(EXTERNAL_LINKS.amazonBook, "_blank", "noopener")}
-            className="w-full px-4 py-2.5 text-sm uppercase tracking-widest border border-[var(--accent)] rounded-[3px] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-[var(--surface)] font-bold flex items-center justify-center gap-2"
+            className="w-full px-4 py-2.5 text-sm uppercase tracking-widest border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert font-bold flex items-center justify-center gap-2"
             style={{ backgroundColor: "var(--surface)" }}
           >
             📖 Gift on Amazon
@@ -6605,7 +6636,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
                     <button
                       key={sub}
                       onClick={() => onOpenDeepDive(sub)}
-                      className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 hover:bg-[var(--accent)] hover:text-[var(--surface)] active:bg-[var(--accent)] active:text-[var(--surface)] transition"
+                      className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition"
                       style={{ backgroundColor: "var(--surface)" }}
                       title={`Learn about ${sub}`}
                     >
@@ -6627,7 +6658,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
                   <button
                     key={t}
                     onClick={() => { if (onOpenTemplate) onOpenTemplate(t); }}
-                    className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold hover:bg-[var(--accent)] hover:text-[var(--surface)] transition"
+                    className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold chip-invert transition"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {t} →
@@ -6806,7 +6837,7 @@ function HomeTab({ scraps = [], scrapbook = [], engagement, dismissedItems, dism
                     slot trims any advisory clause after the em-dash ("Use soon — check
                     it before using" → "use soon"); it's a truncation of the one source,
                     not a second derivation. */}
-                <span className="text-xs italic flex-shrink-0" style={{ color: s.sortKey < 0 ? "var(--accent)" : "var(--spark-text)" }}>
+                <span className="text-xs italic flex-shrink-0" style={{ color: s.sortKey < 0 ? "var(--spark-deep)" : "var(--spark-text)" }}>
                   {s.statusText.split(" — ")[0].toLowerCase()}
                 </span>
               </div>
@@ -7332,24 +7363,25 @@ function NewsletterForm({ onComplete }) {
     const clean = email.trim().toLowerCase();
 
     // ───────────────────────────────────────────────────────────────────────
-    // NEWSLETTER SERVICE HOOK — wire this up before launch.
-    // Replace the body of this block with a POST to your provider (Buttondown,
-    // ConvertKit, etc.). Example for Buttondown:
+    // NEWSLETTER SERVICE HOOK. Set EXTERNAL_LINKS.newsletterEndpoint to an https
+    // URL that accepts POST JSON { email } (a provider form endpoint or a small
+    // relay that holds the provider token — never ship a token in this file).
+    // 409 = already subscribed; treated as success.
     //
-    //   const res = await fetch("https://api.buttondown.email/v1/subscribers", {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json",
-    //                "Authorization": `Token ${YOUR_BUTTONDOWN_TOKEN}` },
-    //     body: JSON.stringify({ email: clean }),
-    //   });
-    //   if (!res.ok && res.status !== 409) throw new Error("subscribe failed");
-    //   // (409 = already subscribed; treat as success)
-    //
-    // Until that's wired, we save locally as a fallback so nothing is lost — but
-    // note these live only on the user's device and are NOT retrievable by you.
+    // The prompt itself only fires once the endpoint is configured (see
+    // nextEarnedPrompt), so the local fallback below is a safety net, not a path
+    // real users reach: addresses saved that way live only on the user's device.
     // ───────────────────────────────────────────────────────────────────────
     try {
-      if (typeof window !== "undefined" && window.storage) {
+      const endpoint = EXTERNAL_LINKS.newsletterEndpoint;
+      if (isConfiguredLink(endpoint)) {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: clean }),
+        });
+        if (!res.ok && res.status !== 409) throw new Error("subscribe failed");
+      } else if (typeof window !== "undefined" && window.storage) {
         // Dedupe: don't store the same address twice.
         let already = false;
         try {
@@ -7695,7 +7727,11 @@ export default function App() {
       ? (Date.now() - new Date(engagement.firstOpenAt).getTime()) / 86400000
       : 0;
 
-    const earned = nextEarnedPrompt(engagement, daysInstalled);
+    // The newsletter prompt is skipped (not merely held) until a signup endpoint is
+    // configured — otherwise it would promise an email nothing can send.
+    const earned = nextEarnedPrompt(engagement, daysInstalled, {
+      newsletter: isConfiguredLink(EXTERNAL_LINKS.newsletterEndpoint),
+    });
     // The review prompt has nowhere to send people until the real review link is
     // configured — hold it (the earn conditions persist, so it fires once it is).
     if (earned === "review" && !isConfiguredLink(EXTERNAL_LINKS.amazonReview)) return;
@@ -8115,6 +8151,15 @@ export default function App() {
         .scrap-app textarea,
         .scrap-app select { border-radius: 3px; }
         .font-hand { font-family: 'Caveat', 'Bradley Hand', cursive; }
+        /* Outlined accent chips that fill on hover/press (.chip-invert). These carry an
+           inline surface background, so a Tailwind hover:text-surface class used to win
+           the text colour while losing the background — white-on-white. iOS Safari keeps
+           :hover on the last-tapped element until the next tap, so chips went blank after
+           a tap. Fill only where a pointer can actually hover; press feedback everywhere. */
+        @media (hover: hover) {
+          .scrap-app .chip-invert:hover { background-color: var(--accent) !important; color: var(--surface) !important; }
+        }
+        .scrap-app .chip-invert:active { background-color: var(--accent) !important; color: var(--surface) !important; }
         /* Hide the horizontal scrollbar on the tab row (WebKit/iOS); the edge
            fades are the scroll affordance instead. Firefox/IE use inline styles. */
         .scrap-app nav .overflow-x-auto::-webkit-scrollbar { display: none; height: 0; }

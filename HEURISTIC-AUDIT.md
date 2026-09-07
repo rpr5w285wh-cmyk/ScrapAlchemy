@@ -12,6 +12,290 @@ actual app as built, not hypothetical personas. Each finding has a severity:
 
 ---
 
+## Full UX audit — September 2026 (current build)
+
+A fresh end-to-end pass over the app as it ships from `main` today (commit `66e40e1`,
+the GitHub Pages build). It supersedes the per-heuristic line items below wherever the
+two disagree; those sections are kept as the record of what was fixed earlier.
+
+**Method.** Read every component in `scrap-alchemy.jsx`; built the site with
+`npm run build`; drove the production build headlessly in Chromium at an iPhone
+14 viewport (390×844, 2×, touch) through every tab, modal, empty state, filter,
+undo strip, the full build-a-recipe → save → share → prompt loop, Largest text, dark
+theme, a simulated day-10 install (monthly card), and a 1280px desktop pass; took
+71 screenshots; measured header/nav height, tap-target sizes, sub-12px text,
+horizontal overflow, console errors, external requests, and WCAG contrast for every
+token pair in both themes. QA harness: 1638/1638 green on the audited commit.
+
+**Caveats.** Google Fonts was unreachable from the audit sandbox, so screenshots
+rendered in fallback faces (metrics that depend on Spectral / Source Sans 3 widths are
+approximate). Nothing below was verified on a physical iPhone; the "verify on the
+phone" list at the end of this section says what to check there.
+
+**Headline.** The app is in good shape: no horizontal overflow on any screen, no
+console errors, one external request (fonts), dark theme at full parity, every
+zero-result state has a way forward, and the Linen system is applied consistently.
+The findings cluster in four places: a real CSS bug that blanks chips after a tap on
+iOS, a marketing prompt that makes a promise the app can't keep, urgency colour that
+reads backwards, and a phone layout that spends a third of every screen on the
+header. Everything else is polish.
+
+### 🔴 High
+
+✔️ **Resolved — H1 — Tappable chips went blank after a tap (sticky hover on iOS).** Eight chip
+buttons pair `hover:text-[var(--surface)]` with an inline
+`style={{ backgroundColor: "var(--surface)" }}`. The inline style beats the
+`hover:bg-[var(--accent)]` class, so while the element is in `:hover` the label is
+white on white. iOS Safari keeps `:hover` on the last-tapped element until the next
+tap, and the headless run reproduced it: in the Lemon deep-dive, "Apple cider vinegar"
+rendered as an empty box (computed colour `rgb(255,255,255)` on `rgb(255,255,255)`).
+Sites: use-up callout chips `scrap-alchemy.jsx:2562`, past-prime suggestion chips
+`:2902`, Builder closest-match `:3434`, Substitutions closest-match `:4983`, tip
+amounts `:5907`, Gift button `:5933`, deep-dive substitutes `:6608`, "Featured in"
+`:6630`. *Fix:* drop the inline background on these eight and use the
+`bg-[var(--surface)]` class (the escaped-class safety rule in the app's `<style>`
+already guarantees the `var()` classes resolve), or set the hover background inline
+via a `data-` state. A QA source scan for "hover:text-surface + inline surface bg" would
+keep it from coming back.
+
+✔️ **Resolved — H2 — The newsletter prompt promised an email that would never arrive.** After the
+user's first scrapbook save (`nextEarnedPrompt`, `:4111`: `scrapbookEntries >= 1`), a
+modal opens 1.5 s after the template closes offering "One template a month, free". The
+form only writes the address to the user's own localStorage (`NewsletterForm`, `:7320`,
+per the code comment), then says "Welcome to the newsletter! First template arrives in
+your inbox soon." The review and tip actions were already gated behind
+`EXTERNAL_LINKS` for exactly this reason; the newsletter wasn't. It also fires on the
+very first save, which is the moment the app has just earned a little trust. *Fix:* add a
+`newsletterEndpoint` to `EXTERNAL_LINKS`, hold the prompt while it's null (same
+pattern as `amazonReview`), and raise the first-fire threshold (e.g. second save or
+day 3). Screenshot: `35-after-save-prompt`.
+
+✔️ **Resolved — H3 — Carried-in ingredients could land in the wrong slot.** Tap Chicken, Potatoes,
+Onion in the Builder, open Anytime Hash: the "From your kitchen" panel reads
+"Chicken → The Fat" and auto-selects "Chicken fat (schmaltz)"; the Protein slot stays
+empty even though it lists "Pulled chicken". `computeInitialPicksFromIngredients`
+(`:3910`) takes the first slot whose option *name* contains the word, and the Fat slot
+comes before Protein. Any word that appears in several slots' option names (garlic,
+shallot, lemon) is exposed to the same ordering luck. *Fix:* consult
+`bestSlotForIngredient` / `SLOT_ROLE_HINTS` first and fall back to the substring scan;
+add a harness case ("Chicken" → `protein` in Anytime Hash, never `fat`). Screenshot:
+`25-template-modal-builder`.
+
+✔️ **Resolved — H4 — Urgency colour was inverted.** "Past its prime" (the most urgent state) is set
+in the calm sage accent, while "Use today" / "1 day left" are terracotta, in both the
+Pantry list (`accentColor`, `:2657`: `danger → var(--accent)`) and the Home use-soon
+card (`:6809`: `sortKey < 0 → var(--accent)`). On Home the two sit on adjacent rows,
+so green = worst, orange = less bad. The card *tint* does escalate (surface-alert), so
+the text colour contradicts its own background. *Fix:* past → `--spark-text` (or a
+dedicated `--danger-text` token), use-soon/warn → a mid tone (ink or a lighter
+terracotta). Screenshots: `16-pantry-demo`, `21-home-established`.
+
+All four High items were fixed in the follow-up commit on this branch; see the
+changelog entry "High fixes" below for what changed and what to verify.
+
+### 🟠 Medium
+
+**M1 — The header spends a third of every phone screen.** Header 218 px + sticky nav
+62 px = 280 px before content on an 844 px viewport (33%); at Largest text the header
+grows to 280 px and the eyebrow wraps to three lines (350 px, 41%). The eyebrow,
+title and subtitle are marketing copy the reader has seen once; they repeat on all
+eight tabs. (Listed earlier as low; the numbers argue for medium.) *Fix:* a compact
+header on inner tabs (title only, ~90 px) or collapse the subtitle after the first
+session; keep the full header on Home.
+
+**M2 — The tab row shows three of eight tabs and clips words.** The scrolling row
+needs 1105 px in a 324 px track. The leftmost visible tab is cut mid-word behind a
+24 px fade ("eal Builder", "tions", "apbook"), which reads as a rendering glitch rather
+than an affordance, and the right-hand fade paints over the *active* tab when it is
+last in view (`04-templates`). On a 1280 px desktop the row still overflows the 896 px
+container with the scrollbar hidden, so mouse users have no visible way to reach
+Storage or Support. *Fix:* shorter labels on phone ("Builder", "Pantry", "Storage",
+"Scrapbook", "Subs"), icon-only for inactive tabs under 400 px, fade width ≥ 2.5 rem
+and never over the active tab; let the row wrap to two lines at ≥ 900 px.
+
+**M3 — Builder results appear far below the fold with no signal.** With a stocked
+pantry the "From your pantry" block pushes the ingredient categories ~900 px down; after
+tapping ingredients, "What you can build" sits ~1500 px further down and nothing tells
+the user matches updated (`23-builder-selected-full`, 4910 px tall). *Fix:* a slim
+pinned bar under the nav once anything is selected ("On hand 3 · 5 templates fit ↓"),
+or render matches directly under the "On hand" strip; collapse the pantry block to one
+row of chips with "show all" when it has more than four.
+
+**M4 — Home → Builder hand-off loses the promise.** Home says "7 templates fit what
+you have" (`unlockedTemplates`, `:6758`, counted via `templatesForScraps`), but "Build a
+meal" lands on the Builder with nothing selected, and the Builder's own matcher
+(`matchTemplates` over `SCRAP_TAGS`) would give a different number anyway. Two
+derivations of "what fits" is the pattern the architecture rules warn about. *Fix:* on
+that route, pre-select the usable pantry scraps (so the count is realised on arrival),
+and compute the Home count with the same matcher.
+
+**M5 — Two deletion patterns, three controls for one action.** Pantry removal uses
+the inline 7-second undo strip (good). A scrapbook entry uses "Tap again to delete"
+with no undo, and deleting closes the modal (`ScrapbookEntryModal`, `:6363`). On a pantry
+card, the trash icon, "Used it up" and "Discarded" all call the same `requestRemove`,
+and the strip always says "Removed", so the verb the user chose is thrown away. *Fix:*
+give the scrapbook list the same undo strip; either drop the trash icon or make the strip
+echo the verb ("Used up Garlic confit — Undo").
+
+**M6 — Tap targets under 44 px on the primary actions.** Measured on the phone
+viewport: "Used it up" / "Discarded" 16 px tall, status chip 18 px, footer links 16 px,
+"Share Scrap Alchemy" 16 px, template chips 26 px, "clear" links ~16 px, tab-order
+arrows 24–28 px, banner dismiss 24 px, modal Close 20 px, trash 16 px, header buttons
+36 px. 57 sub-44 px controls on the demo Pantry alone. *Fix:* keep the visual size,
+add padding / `min-height: 44px` hit areas (negative margins keep the layout).
+
+**M7 — Text below 11 px, and two arbitrary Tailwind sizes.** Builder chip status
+suffix is `text-[10px]` (`:3385`); the combo "Customize" control is 0.55 rem ≈ 8.8 px
+(`:4814`); the Dropdown panel label is `text-[0.6rem]` (`:5605`). CLAUDE.md notes
+arbitrary values don't compile in the artifact sandbox, so those two labels render at
+different sizes in the artifact and on the site. *Fix:* inline `fontSize` ≥ 11 px.
+
+**M8 — Support tab copy assumes cards that aren't there.** With no links configured
+(the shipped state), the intro says "here are a few ways to give back", then the only
+element is a dashed box starting "Or just tell a friend…". *Fix:* when zero cards
+render, swap the intro to something like "The best way to support the book is to tell
+someone about it." and drop the leading "Or". Proposed copy, for the author's edit.
+
+**M9 — Full-height modals use `100vh`.** Every modal is `max-h-screen` with
+`items-stretch` on phones. On iOS Safari `100vh` is taller than the visible viewport, so
+the bottom of a tall modal (Save to scrapbook, Build my recipe, Save to pantry) can sit
+under the toolbar and the last rows of the inner scroll may be unreachable. *Fix:*
+`max-h-dvh` (Tailwind 3.4) with `max-h-screen` as the fallback, and/or a sticky action
+row at the bottom of the scroll region. Needs a device check.
+
+**M10 — The book is never named; the app is credited as the cookbook.** The share
+message reads "a great cookbook — Scrap Alchemy by mg frank" (`:7133`), the native
+recipe share says "from Scrap Alchemy by mg frank" (`:6261`), and each Story ends "— from
+Scrap Alchemy" while its eyebrow cites a chapter of the book (`:3847`). The string
+"The Alchemist's Scrapbook" does not occur anywhere in the jsx. For an app whose job is
+book marketing, outward-facing text should carry the book's title. *Fix:* name the book
+in the share text, the story attribution, and the Support intro. Copy for the author.
+
+**M11 — "Save as a custom item" only appears at zero results.** In Add a scrap, the
+custom path (`:3029`) is offered only when the search matches nothing. A query that
+partially matches a preset ("garlic" → Raw Infused Oil, Confit Garlic) has no way to
+save "garlic scapes" without retyping something the list doesn't match. *Fix:* always
+append a "Save “q” as a custom item" row under a filtered list when there's no exact
+name match.
+
+**M12 — Short-lived types are born in warning colour.** Cooked meat (cautious end
+3 days) shows "3 days left" in terracotta the day it is added (`formatDaysLeft`: days ≤ 3
+→ warn). Every leftover is orange on day 0, so the colour carries no information for
+that category. *Fix:* warn at `min(3, ceil(shortDays / 2))` days, or only at ≤ 1 day for
+types whose short end is ≤ 4 days.
+
+**M13 — First Home screen says "not a recipe app" three times and offers the Builder
+twice.** Eyebrow + Day-1 card ("This isn't a recipe app. It's a working kitchen…") + How
+this works intro (the same sentence). CTAs: "Try the meal builder" (card) and "Build a
+meal" (guide), while step 1 of the guide is "Stock your pantry" (already parked). Copy
+proposals: keep the line in one place (the guide), make the Day-1 card the book's voice
+instead of the app's pitch, and point the guide CTA at the pantry to match its own step 1.
+
+**M14 — Storage & Safety leads with the temperature table; search is below the
+fold.** The tab most likely to be opened in a hurry ("is this still good?") puts search
+at ~1550 px, under a 600 px temperature card, on a 4557 px page. *Fix:* search + category
+filter first, temperatures as a collapsed card ("Safe internal temperatures ›").
+
+### 🟢 Low / polish
+
+- **L1 — Theme button.** Shows the current state, not the action; "Auto" is a desktop
+  monitor icon on a phone; three-state cycle with no label. Settings already has a
+  labelled control; consider dropping the header toggle.
+- **L2 — Mixed icon systems.** Emoji and text glyphs beside lucide icons: ✨ Load demo
+  pantry, 📖, ☕, ★, ⓘ (Builder info buttons), ◦ bullets. Emoji render differently per OS.
+- **L3 — Search inputs.** Substitutions uses a raw `<input>` rather than the shared
+  `SearchInput` (`:4963`), so it has no clear ×. No search field sets `type="search"`,
+  `enterKeyHint="search"` or `autoCapitalize="none"`, so iOS capitalises the first letter
+  and offers a "return" key.
+- **L4 — Dropdown labels truncate** at 390 px ("USE SOON…", "PAST PRI…"). Shorter
+  option labels ("Soonest", "Past prime (2)") or drop the "Show" prefix.
+- **L5 — Template modal mode tabs wrap** ("BUILD / MINE") at 390 px. "Build" alone, or
+  less tracking.
+- **L6 — Duplicate quantities on the recipe and share cards.** "1–2 cloves 1–2 garlic
+  cloves", "2 Tbsp 2 Tbsp fried shallots": fifteen option names begin with an amount and
+  also carry `overrideAmount` (`:406–410` and others). Strip the leading amount from the
+  name when an override exists, or name options without amounts. Visible on the
+  shareable PNG, so worth fixing before the share feature gets used.
+- **L7 — Build-mine length on a phone.** Anytime Hash is 8 slots × 5–7 full-width option
+  cards ≈ 4000 px of modal; "Pick 4 more" sits at the very bottom and doesn't say which.
+  Two-column compact options under 640 px and a pinned "4 of 8 chosen" line (or sticky
+  Build button) would help.
+- **L8 — Demo pantry has no "demo" marker.** Ten realistic jars land in the user's real
+  pantry with no way to tell them apart later except "Clear pantry" at the bottom. Tag
+  them (`demo: true`, small "sample" label) and offer "Remove sample items".
+- **L9 — Accessibility basics.** Modals have no `role="dialog"` / `aria-modal`, no focus
+  trap, no Escape-to-close, no focus return; nine controls set `outline-none`; headings
+  skip from h1 to h3; no `prefers-reduced-motion`. Keyboard focus shows the browser's
+  default ring (visible, unthemed). Low on a phone; the site is also public on desktop.
+- **L10 — Font loading.** Google Fonts is pulled by a CSS `@import` inside a `<style>`
+  rendered by React (`:8047`), so the request starts only after the bundle runs; if it
+  fails everything falls back silently. Move to `<link rel="preconnect">` + `<link>` in
+  `index.html`, or self-host the three faces on DreamHost.
+- **L11 — Copy drift.** Welcome day 5 says "The seven templates in this book" (`:2097`);
+  the app ships nine.
+- **L12 — Contrast (light theme).** `--moss` on white is 3.45:1 and is used for the
+  "ok" countdown text ("~4 weeks left") at 12–13 px, below AA for small text;
+  `--spark-text` on `--surface-warm` is 4.03:1 (the italic use-soon note on warm cards).
+  Everything else passes; the dark theme passes throughout. Use `--accent` (5.21:1) for
+  the ok tone and darken `--spark-text` ~5%.
+- **L13 — Duplicate suggestions under the Past-prime filter.** The "Put them to use"
+  callout lists the same template chips that every card beneath it repeats in "If your
+  senses say yes".
+- **L14 — After "Add", the new item may be off-screen.** The list is sorted by use-soonest,
+  so a long-dated item lands at the bottom under a toast that says only "Added…". Scroll
+  to it or flash its card.
+- **L15 — Redundant entry points.** Settings is in the header and the footer; Support is
+  a tab and a footer link. Fine, but the footer could be Share alone once the header is
+  compacted (M1).
+
+### ✅ Strengths worth protecting
+
+- Linen system applied consistently; dark theme is a real design, not an inversion.
+- Inline undo at the tap location (pantry), status provenance on tap, honest empty
+  states, and a forward path on every zero-result search.
+- `enrichScrap` as the single source of pantry status: the same wording on Pantry,
+  Builder chips and Home (verified).
+- No horizontal overflow on any screen at 390 px, including Largest text; no console
+  errors; the only network request beyond the site is fonts.
+- The book's voice carries through prose, hints and safety notes; safety text is
+  intact and prominent (botulism warning, reheat temperatures, "when in doubt").
+- A 1638-assertion harness that catches referential drift between templates,
+  storage cards and deep-dives.
+
+### Recommended order
+
+1. H1 (eight one-line class changes + a QA scan) — visible on the author's own phone.
+2. H2 (gate the newsletter like the review link; raise the threshold).
+3. H4 (urgency colour) and L12 (moss → accent) together, one token pass.
+4. H3 (slot mapping) with a harness case.
+5. M6 + M7 (hit areas, minimum text size) — one CSS pass.
+6. M1 + M2 (compact inner-tab header, shorter tab labels).
+7. M3 + M4 (Builder results visibility, Home → Builder hand-off).
+8. M8 + M10 + M13 + L11 copy — proposed wording above, for the author to edit.
+9. M9 (`dvh`) after a device check.
+10. The rest opportunistically.
+
+### Verify on the phone (iPhone, Safari and Home-screen app)
+
+- **H1:** Pantry → Load demo pantry → on "Garlic confit" tap the "Pantry Pasta" chip →
+  close the template. Expected today: the chip's label has vanished (white on white)
+  until you tap elsewhere. Same for a deep-dive's "If you don't have it" chips.
+- **H4:** Home with the demo pantry: "past its prime" rows are green, "1 day left" is
+  orange.
+- **M9:** Scrapbook → Save a discovery → scroll the form to the bottom. Check the Save
+  button clears the Safari toolbar; repeat in the Home-screen app.
+- **M1:** On My Pantry, note how much of the first screen is header before the title.
+- **M2:** Swipe the tab row slowly; watch the left edge of the first visible tab and the
+  right edge of an active last tab.
+- **M3:** Builder with the demo pantry: tap Chicken; is there any sign that results
+  changed below?
+- **H3:** Builder → Chicken, Potatoes, Onion → Anytime Hash: "Chicken → The Fat".
+- **Share card:** Improvised Pesto → Build mine → Build → Save → Share this recipe →
+  check the "1–2 cloves 1–2 garlic cloves" line, then try Download PNG in the Home-screen
+  app (downloads from standalone mode are unreliable on iOS; native Share is the path).
+
+---
+
 ## 1. Visibility of system status
 
 ✅ **Strength.** Pantry items show clear, plain-language status ("Use today", "2 weeks
@@ -183,13 +467,55 @@ QA now sweeps the real STORAGE_GUIDE: every card must resolve to a dive or templ
 
 ---
 
-## Still open (polish, non-blocking)
+## Still open
 
-- 🟢 Header is tall; could condense on inner tabs (#8).
-- 🟢 No bulk actions in the pantry (#7).
-- 🟢 Verify dashed-border signal isn't diluting now that the Home "App guide" divider uses one (#4).
+Superseded by the **Full UX audit — September 2026** section at the top of this file,
+which carries the current High / Medium / Low lists and the recommended order. Of the
+three items previously listed here: the tall header is now M1 (with measurements);
+bulk actions (#7) and the dashed-border signal (#4) remain 🟢 and are folded into the
+polish list's spirit (no change of status).
 
 ---
+
+## Changelog — full UX audit (September 2026)
+
+- **Audit only, no app changes.** Added the "Full UX audit — September 2026" section:
+  4 High / 14 Medium / 15 Low findings with file:line references, a recommended order,
+  and a verify-on-the-phone list. Method: code read + headless iPhone-size walkthrough
+  of the production build (71 screenshots, tap-target / text-size / overflow / contrast
+  measurements). QA harness unchanged at 1638 green. The "Still open" list now points at
+  the new section.
+
+## Changelog — High fixes from the September 2026 audit
+
+- **H1 — chips no longer blank after a tap.** The eight outlined accent chips that
+  filled on hover now use one shared `.chip-invert` class instead of Tailwind
+  `hover:bg/hover:text` pairs that lost to their inline surface background. The fill
+  is scoped to `@media (hover: hover)` (pointer devices), with `:active` press
+  feedback everywhere, so iOS sticky `:hover` can't strand a white-on-white label.
+  QA §28 scans the source so the pattern can't return.
+- **H2 — newsletter prompt gated on a real endpoint.** New
+  `EXTERNAL_LINKS.newsletterEndpoint` (null = the prompt never fires, mirroring the
+  review-link gate). `nextEarnedPrompt` takes `{ newsletter: false }` and then skips
+  the newsletter and lets the review fire on its own thresholds. When configured,
+  `NewsletterForm` POSTs `{ email }` to the endpoint (409 = already subscribed); the
+  local-storage save is now only a fallback. **Threshold change for the author to
+  confirm:** the newsletter now waits for the *second* save or build (or one pantry
+  item plus three days) instead of the first save.
+- **H3 — carried-in ingredients follow their role.** `computeInitialPicksFromIngredients`
+  now decides each ingredient's slot first, preferring the slot its role hint names
+  (`bestSlotForIngredient`) when several slots list the word; document order only
+  breaks ties the hints don't cover. Chicken → The Protein, not The Fat. QA §27 adds
+  the Hash case plus a sweep over every builder × Builder-tab ingredient (role-hinted
+  slot wins wherever it lists the ingredient; nothing named by a slot is dropped).
+- **H4 — urgency colour escalates with the card.** Past prime → `--spark-deep`
+  (4.94:1 on the alert tint, light), use-soon/warn → `--spark-text`, healthy →
+  `--accent` (was `--moss`, 3.45:1). Same mapping on the Pantry list, the Home
+  use-soon card, and the Builder chips (also closes L12's moss finding).
+- QA harness 1638 → 1656, all green; esbuild + Vite build verified; the four
+  fixes re-checked headlessly (chip colours after a tap, hover fill on a pointer
+  device, Hash slot mapping, Home/Pantry colours, no prompt after two saves with
+  the endpoint unset).
 
 ## Changelog — Home Screen icon (July 2026)
 
