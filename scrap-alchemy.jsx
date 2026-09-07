@@ -2292,6 +2292,21 @@ const SCRAP_TAGS = {
   "Fried Shallots": ["shallot"],
 };
 
+// The matcher tags a set of saved scraps contributes (pantry → Builder vocabulary).
+function scrapMatcherTags(scraps) {
+  return (scraps || []).flatMap(s => SCRAP_TAGS[s.type] || []);
+}
+
+// Templates the Builder would show as buildable ("anchored") from these scraps alone —
+// the SAME matcher the Builder runs, so the Home dashboard's "N templates fit what you
+// have" is the number the user then sees. (It used to count the use-up suggestions
+// from templatesForScraps, a different derivation that could disagree.)
+function buildableTemplatesForScraps(scraps) {
+  const tags = scrapMatcherTags(scraps);
+  if (!tags.length) return [];
+  return matchTemplates(tags).filter(t => t.needsMet).map(t => t.name);
+}
+
 // ============ COMPONENTS ============
 
 // ============ SCRAPS TRACKER ============
@@ -3288,9 +3303,13 @@ function TodayBanner({ engagement, dismissedItems, onDismiss, onTabChange, onOpe
 
 // ============ EXISTING COMPONENTS ============
 
-function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement, incModal, decModal, engagement, dismissedItems = [], dismissItem, onTabChange, startTab = "home" }) {
+function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement, incModal, decModal, engagement, dismissedItems = [], dismissItem, onTabChange, startTab = "home", initialSelectedScraps = null }) {
   const [selected, setSelected] = useState([]);
-  const [selectedScraps, setSelectedScraps] = useState([]);
+  // May arrive pre-filled from the Home dashboard's "What can you make?" card.
+  const [selectedScraps, setSelectedScraps] = useState(() => (initialSelectedScraps || []).filter(id => scraps.some(s => s.id === id)));
+  // The pantry block shows the few most urgent items by default; the rest unfold.
+  const [showAllScraps, setShowAllScraps] = useState(false);
+  const resultsRef = useRef(null);
   const [activeCategory, setActiveCategory] = useState("proteins");
   const [openTemplate, setOpenTemplate] = useState(null);
   const [query, setQuery] = useState("");
@@ -3331,19 +3350,26 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
       .filter(s => s.sortKey >= 0)
       .sort((a, b) => a.sortKey - b.sortKey);
   }, [scraps, today]);
+  // Show the most urgent few by default (plus anything already selected, so a
+  // selection never hides); the rest unfold on demand. Ten chips used to push the
+  // ingredient grid — the thing this tab is for — most of a screen down.
+  const PANTRY_PREVIEW = 4;
+  const pantryCollapsed = !showAllScraps && usableScraps.length > PANTRY_PREVIEW + 1;
+  const visibleScraps = pantryCollapsed
+    ? usableScraps.filter((s, i) => i < PANTRY_PREVIEW || selectedScraps.includes(s.id))
+    : usableScraps;
+  const hiddenScrapCount = usableScraps.length - visibleScraps.length;
 
   // Combine fresh ingredients + tags from selected scraps for the matcher
   const allIngredientsForMatcher = useMemo(() => {
-    const fromScraps = selectedScraps.flatMap(id => {
-      const scrap = scraps.find(s => s.id === id);
-      return scrap ? (SCRAP_TAGS[scrap.type] || []) : [];
-    });
+    const fromScraps = scrapMatcherTags(selectedScraps.map(id => scraps.find(s => s.id === id)).filter(Boolean));
     return [...selected, ...fromScraps];
   }, [selected, selectedScraps, scraps]);
 
   const matches = useMemo(() => matchTemplates(allIngredientsForMatcher), [allIngredientsForMatcher]);
 
   const totalSelected = selected.length + selectedScraps.length;
+  const buildableCount = matches.filter(m => m.needsMet).length;
 
   // When user opens a template from the builder
   const handleOpenTemplate = (templateName) => {
@@ -3376,6 +3402,38 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
       {/* Search — directly under the header. Finds an ingredient across all categories. */}
       <SearchInput value={query} onChange={setQuery} placeholder="Search ingredients (parmesan, egg, lemon…)" />
 
+      {/* Live tally — the results render below the ingredient grid, which on a phone can
+          be a screen or more down, so this one line says what the taps are doing and
+          jumps to the results. Appears only once something is selected. */}
+      {totalSelected > 0 && (
+        <button
+          onClick={() => {
+            // Vertical page scroll to the results heading, under the sticky nav. Set the
+            // page's own scroll position rather than scrollIntoView (which walks every
+            // scroll ancestor and jumps the page on iOS).
+            const el = resultsRef.current;
+            if (!el) return;
+            const nav = document.querySelector("nav");
+            const navH = nav ? nav.getBoundingClientRect().height : 0;
+            window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - navH - 12, behavior: "smooth" });
+          }}
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 border border-[var(--accent)] rounded-[3px] text-left tap-sm"
+          style={{ backgroundColor: "var(--surface-moss)" }}
+          aria-label="Jump to what you can build"
+        >
+          <span className="text-sm text-[var(--ink)]">
+            <span className="font-semibold">{totalSelected} on hand</span>
+            <span className="text-[var(--ink-soft)]"> · </span>
+            {buildableCount === 0
+              ? <span className="text-[var(--ink-soft)] italic">no template unlocked yet</span>
+              : <span>{buildableCount === 1 ? "1 template fits" : `${buildableCount} templates fit`}</span>}
+          </span>
+          <span className="text-xs uppercase tracking-widest font-bold text-[var(--accent)] flex items-center gap-1 whitespace-nowrap">
+            See them <ChevronDown className="w-3.5 h-3.5" />
+          </span>
+        </button>
+      )}
+
       {/* Saved scraps from pantry — only show if user has any */}
       {usableScraps.length > 0 && (
         <div className="border border-[var(--accent-40)] p-4" style={{ backgroundColor: "var(--surface)" }}>
@@ -3384,7 +3442,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
             <h4 className="text-xs uppercase tracking-widest text-[var(--accent)] font-bold">From your pantry</h4>
           </div>
           <div className="flex flex-wrap gap-2">
-            {usableScraps.map(s => {
+            {visibleScraps.map(s => {
               const isSel = selectedScraps.includes(s.id);
               // Status comes pre-computed from enrichScrap (statusText/tone/zone) —
               // one source of truth shared with the Pantry and the Home dashboard.
@@ -3393,7 +3451,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                 <button
                   key={s.id}
                   onClick={() => toggleScrap(s.id)}
-                  className="px-3 py-1.5 text-sm border transition flex items-center gap-1.5 tap-sm"
+                  className="px-3 py-1.5 text-sm border transition flex items-center gap-1.5 text-left tap-sm"
                   style={{
                     backgroundColor: isSel ? "var(--accent)" : "var(--surface)",
                     color: isSel ? "var(--surface)" : "var(--ink)",
@@ -3415,6 +3473,16 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
               );
             })}
           </div>
+          {((pantryCollapsed && hiddenScrapCount > 0) || (showAllScraps && usableScraps.length > PANTRY_PREVIEW + 1)) && (
+            <button
+              onClick={() => setShowAllScraps(v => !v)}
+              className="mt-3 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 tap"
+              aria-expanded={showAllScraps}
+            >
+              <ChevronDown className="w-3.5 h-3.5 transition-transform" style={{ transform: showAllScraps ? "rotate(180deg)" : "none" }} />
+              {pantryCollapsed ? `Show ${hiddenScrapCount} more` : "Show fewer"}
+            </button>
+          )}
         </div>
       )}
 
@@ -3554,7 +3622,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
 
       {/* Matches */}
       {totalSelected > 0 && (
-        <div>
+        <div ref={resultsRef}>
           <h4 className="font-display text-xl text-[var(--ink)] mb-3">What you can build</h4>
           {matches.length === 0 ? (
             <div className="p-4 border border-[var(--border)] rounded-[3px] text-sm text-[var(--ink-soft)] italic" style={{ backgroundColor: "var(--surface)" }}>
@@ -6793,7 +6861,7 @@ function HowItWorksBody({ onGoTo, showHeading = true, tabOrder = null }) {
 // aging), a "what can you make" launch into the Builder (when the pantry has
 // anything), and the how-this-works orientation — which leads for a new user and
 // demotes to a quiet, collapsible footer once there's real data to show.
-function HomeTab({ scraps = [], scrapbook = [], engagement, dismissedItems, dismissItem, onTabChange, openDeepDive, onOpenTemplate, tabOrder = null }) {
+function HomeTab({ scraps = [], scrapbook = [], engagement, dismissedItems, dismissItem, onTabChange, onBuildFromPantry, openDeepDive, onOpenTemplate, tabOrder = null }) {
   const enriched = useMemo(() => enrichScraps(scraps), [scraps]);
   const pantryCount = enriched.length;
   const useSoon = useMemo(
@@ -6801,11 +6869,11 @@ function HomeTab({ scraps = [], scrapbook = [], engagement, dismissedItems, dism
                   .sort((a, b) => a.sortKey - b.sortKey),
     [enriched]
   );
-  const unlockedTemplates = useMemo(() => {
-    // How many use-up templates the current pantry suggests (rough "what can you make").
-    const usable = enriched.filter(s => !s.isCustom);
-    return usable.length ? templatesForScraps(usable).length : 0;
-  }, [enriched]);
+  // Same filter the Builder uses for "From your pantry" (past-prime items drop out;
+  // custom items have no expiry and stay), and the same matcher, so this number is
+  // exactly what "Build a meal" lands on.
+  const usableScraps = useMemo(() => enriched.filter(s => s.sortKey >= 0), [enriched]);
+  const unlockedTemplates = useMemo(() => buildableTemplatesForScraps(usableScraps).length, [usableScraps]);
 
   // "Established" once there's a pantry to talk about. New users (empty pantry) get
   // orientation up top; established users get status first, orientation demoted.
@@ -6871,7 +6939,12 @@ function HomeTab({ scraps = [], scrapbook = [], engagement, dismissedItems, dism
           into the core loop. */}
       {established && unlockedTemplates > 0 && (
         <button
-          onClick={() => onTabChange && onTabChange("builder")}
+          onClick={() => {
+            // Arrive in the Builder with these pantry items already selected, so the
+            // templates promised here are the ones on screen there.
+            if (onBuildFromPantry) onBuildFromPantry(usableScraps.map(s => s.id));
+            else if (onTabChange) onTabChange("builder");
+          }}
           className="w-full text-left border border-[var(--border)] rounded-[3px] p-4 hover:border-[var(--accent)] hover:bg-[var(--accent-10)] transition"
           style={{ backgroundColor: "var(--surface)" }}
         >
@@ -6880,7 +6953,7 @@ function HomeTab({ scraps = [], scrapbook = [], engagement, dismissedItems, dism
             <span className="text-xs uppercase tracking-widest font-bold text-[var(--accent)]">What can you make?</span>
           </div>
           <p className="text-sm text-[var(--ink-soft)]">
-            Your pantry has {pantryCount === 1 ? "an ingredient" : `${pantryCount} ingredients`} to build from.
+            Your pantry has {usableScraps.length === 1 ? "an ingredient" : `${usableScraps.length} ingredients`} to build from.
             {unlockedTemplates > 0 && ` ${unlockedTemplates === 1 ? "1 template fits" : `${unlockedTemplates} templates fit`} what you have.`}
           </p>
           <div className="flex items-center gap-1 text-xs uppercase tracking-widest font-bold text-[var(--accent)] mt-3">
@@ -8087,6 +8160,12 @@ export default function App() {
   // Tab metadata (label + icon) keyed by id, both from the shared module-level
   // maps so the nav and Settings never drift. Order comes from tabOrder, flattened.
   const tabs = flattenTabOrder(tabOrder).map(id => ({ id, label: TAB_LABELS[id], icon: TAB_ICONS[id] }));
+  // Home → Builder hand-off: the "What can you make?" card sends the pantry ids it
+  // counted, and the Builder mounts with them selected. Cleared once the user leaves
+  // the Builder, so opening the tab directly starts clean.
+  const [builderPreselect, setBuilderPreselect] = useState(null);
+  const openBuilderFromPantry = (ids) => { setBuilderPreselect(ids && ids.length ? ids : null); setTab("builder"); };
+  useEffect(() => { if (tab !== "builder") setBuilderPreselect(null); }, [tab]);
   // Full masthead on Home only; a one-line title everywhere else (see the header).
   const compactHeader = tab !== "home";
 
@@ -8407,6 +8486,7 @@ export default function App() {
             dismissedItems={dismissedItems}
             dismissItem={dismissItem}
             onTabChange={setTab}
+            onBuildFromPantry={openBuilderFromPantry}
             openDeepDive={openIngredientDeepDive}
             onOpenTemplate={handleDeepDiveTemplateOpen}
             tabOrder={tabOrder}
@@ -8415,6 +8495,7 @@ export default function App() {
         {tab === "builder" && (
           <MealBuilder
             scraps={scraps}
+            initialSelectedScraps={builderPreselect}
             addToScrapbook={addScrapbookEntry}
             openDeepDive={openIngredientDeepDive}
             bumpEngagement={bumpEngagement}

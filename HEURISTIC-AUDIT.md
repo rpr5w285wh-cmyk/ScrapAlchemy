@@ -92,7 +92,8 @@ terracotta). Screenshots: `16-pantry-demo`, `21-home-established`.
 
 All four High items were fixed in the follow-up commit on this branch; see the
 changelog entry "High fixes" below. M1, M2, M6 and M7 followed in the next commit
-("Header, tab row, tap targets" below).
+("Header, tab row, tap targets" below), then M3 and M4 ("Builder results and the Home
+hand-off" below).
 
 ### 🟠 Medium
 
@@ -114,7 +115,7 @@ Storage or Support. *Fix:* shorter labels on phone ("Builder", "Pantry", "Storag
 "Scrapbook", "Subs"), icon-only for inactive tabs under 400 px, fade width ≥ 2.5 rem
 and never over the active tab; let the row wrap to two lines at ≥ 900 px.
 
-**M3 — Builder results appear far below the fold with no signal.** With a stocked
+✔️ **Resolved — M3 — Builder results appeared far below the fold with no signal.** With a stocked
 pantry the "From your pantry" block pushes the ingredient categories ~900 px down; after
 tapping ingredients, "What you can build" sits ~1500 px further down and nothing tells
 the user matches updated (`23-builder-selected-full`, 4910 px tall). *Fix:* a slim
@@ -122,7 +123,7 @@ pinned bar under the nav once anything is selected ("On hand 3 · 5 templates fi
 or render matches directly under the "On hand" strip; collapse the pantry block to one
 row of chips with "show all" when it has more than four.
 
-**M4 — Home → Builder hand-off loses the promise.** Home says "7 templates fit what
+✔️ **Resolved — M4 — The Home → Builder hand-off lost the promise.** Home says "7 templates fit what
 you have" (`unlockedTemplates`, `:6758`, counted via `templatesForScraps`), but "Build a
 meal" lands on the Builder with nothing selected, and the Builder's own matcher
 (`matchTemplates` over `SCRAP_TAGS`) would give a different number anyway. Two
@@ -486,6 +487,33 @@ polish list's spirit (no change of status).
   of the production build (71 screenshots, tap-target / text-size / overflow / contrast
   measurements). QA harness unchanged at 1638 green. The "Still open" list now points at
   the new section.
+
+## Changelog — Builder results and the Home hand-off (September 2026 audit, items M3/M4)
+
+- **M4 — one count, one derivation.** New pure `scrapMatcherTags` +
+  `buildableTemplatesForScraps` (the Builder's own matcher over the pantry's
+  `SCRAP_TAGS`) now drive the Home card's "N templates fit what you have"; the
+  Builder's matcher input uses the same helper. The card counts the same items the
+  Builder shows (past-prime dropped, custom kept). Tapping the card hands those
+  pantry ids to the Builder, which mounts with them selected, so the promised
+  templates are on screen on arrival; opening the Builder from the tab row still
+  starts clean. QA §30: the Home count equals the Builder's anchored matches for
+  the same scraps, tagless or custom-only pantries count 0, and a source check that
+  Home no longer counts via `templatesForScraps`.
+- **M3 — results within reach.** The "From your pantry" block shows the four most
+  urgent items (plus anything selected) with "Show N more" / "Show fewer"; with the
+  demo pantry that trims ~120 px of chips from above the ingredient grid. Once
+  anything is selected, a one-line tally sits under the search field ("3 on hand ·
+  5 templates fit · See them ↓") and jumps the page to "What you can build" (page
+  scroll set directly, not `scrollIntoView`). The tally uses the Builder's live
+  matches, so it can never disagree with the results below it.
+- QA harness 1666 → 1674; esbuild + Vite build verified; hand-off, collapse, tally
+  and jump checked headlessly.
+- **Verify on the phone:** Home with the demo pantry → note the number on "What can
+  you make?" → tap it: the Builder opens with the pantry chips already selected and
+  the tally line shows the same number; tap "See them" — the page scrolls to the
+  results; Builder from the tab row — nothing pre-selected, pantry block shows four
+  chips and "Show 4 more".
 
 ## Changelog — Header, tab row, tap targets (September 2026 audit, items M1/M2/M6/M7)
 

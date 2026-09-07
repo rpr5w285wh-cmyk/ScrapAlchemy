@@ -38,6 +38,7 @@ const NAMES = [
   "defaultTabOrder", "movableRange", "moveGroup", "moveTabInGroup", "flattenTabOrder", "isValidTabOrder",
   "enrichScrap", "enrichScraps", "templatesForScrapType",
   "isConfiguredLink", "tipAmounts", "editDistance", "closestMatches",
+  "matchTemplates", "scrapMatcherTags", "buildableTemplatesForScraps",
 ];
 // Also need the TEXTURE_CAVEATS / EXCLUSIONS data arrays textureCaveatFor closes over.
 function extractConst(name) {
@@ -71,12 +72,15 @@ const code =
   extractConst("SLOT_ROLE_HINTS") + "\n" +
   extractConst("TAB_GROUPS") + "\n" +
   extractConst("SCRAP_TYPES") + "\n" +
+  extractConst("TEMPLATES") + "\n" +
+  "const SCRAP_TAGS = " + extractObjConst("SCRAP_TAGS") + ";\n" +
   NAMES.map(extract).join("\n") + "\n" +
   "module.exports = { " + NAMES.join(", ") + " };";
 
 const mod = {};
 new Function("module", code)(mod);
 const F = mod.exports;
+const TEMPLATES_NAMES = eval("(" + extractConst("TEMPLATES").replace(/^const TEMPLATES = /, "").replace(/;$/, "") + ")").map(t => t.name);
 
 let pass = 0, fail = 0;
 const fails = [];
@@ -1084,6 +1088,22 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   check("no .tap on an absolutely positioned element", !/className="[^"]*\babsolute\b[^"]*\btap\b[^"]*"/.test(src) && !/className="[^"]*\btap\b[^"]*\babsolute\b[^"]*"/.test(src));
   // M1: the header collapses on inner tabs.
   check("header has a compact mode on inner tabs", /const compactHeader = tab !== "home";/.test(src) && /compactHeader \? "py-3" : "py-8"/.test(src));
+}
+
+// ---- 30. Home's "N templates fit" is the Builder's own count -----------------------
+{
+  const mk = (type, id) => ({ id, type, location: "fridge", dateStored: "2026-09-01" });
+  const demo = [mk("Parmesan Rinds", "a"), mk("Pickle Brine", "b"), mk("Cooked Pasta or Grains", "c"), mk("Fried Shallots", "d"), mk("Soup or Stew", "e")];
+  const names = F.buildableTemplatesForScraps(demo);
+  const viaBuilder = F.matchTemplates(F.scrapMatcherTags(demo)).filter(t => t.needsMet).map(t => t.name);
+  check("home count = builder anchored matches (same tags, same matcher)", JSON.stringify(names) === JSON.stringify(viaBuilder));
+  check("home count: every name is a real template", names.every(n => TEMPLATES_NAMES.includes(n)));
+  check("home count: pasta scrap unlocks Pantry Pasta", names.includes("Pantry Pasta"));
+  check("home count: empty pantry → 0", F.buildableTemplatesForScraps([]).length === 0);
+  check("home count: custom-only pantry (no tags) → 0", F.buildableTemplatesForScraps([mk("Grandma's chutney", "x")]).length === 0);
+  check("home count: tagless preset (Soup or Stew) alone → 0, not a universal fallback", F.buildableTemplatesForScraps([mk("Soup or Stew", "e")]).length === 0);
+  check("HomeTab no longer counts via templatesForScraps", !/unlockedTemplates[\s\S]{0,200}templatesForScraps/.test(src));
+  check("Home hands its pantry ids to the Builder", /onBuildFromPantry\(usableScraps\.map\(s => s\.id\)\)/.test(src) && /initialSelectedScraps=\{builderPreselect\}/.test(src));
 }
 
 // ---- 29. Tab labels: short labels cover every tab and stay short --------------------
