@@ -91,11 +91,12 @@ dedicated `--danger-text` token), use-soon/warn → a mid tone (ink or a lighter
 terracotta). Screenshots: `16-pantry-demo`, `21-home-established`.
 
 All four High items were fixed in the follow-up commit on this branch; see the
-changelog entry "High fixes" below for what changed and what to verify.
+changelog entry "High fixes" below. M1, M2, M6 and M7 followed in the next commit
+("Header, tab row, tap targets" below).
 
 ### 🟠 Medium
 
-**M1 — The header spends a third of every phone screen.** Header 218 px + sticky nav
+✔️ **Resolved — M1 — The header spent a third of every phone screen.** Header 218 px + sticky nav
 62 px = 280 px before content on an 844 px viewport (33%); at Largest text the header
 grows to 280 px and the eyebrow wraps to three lines (350 px, 41%). The eyebrow,
 title and subtitle are marketing copy the reader has seen once; they repeat on all
@@ -103,7 +104,7 @@ eight tabs. (Listed earlier as low; the numbers argue for medium.) *Fix:* a comp
 header on inner tabs (title only, ~90 px) or collapse the subtitle after the first
 session; keep the full header on Home.
 
-**M2 — The tab row shows three of eight tabs and clips words.** The scrolling row
+✔️ **Resolved — M2 — The tab row showed three of eight tabs and clipped words.** The scrolling row
 needs 1105 px in a 324 px track. The leftmost visible tab is cut mid-word behind a
 24 px fade ("eal Builder", "tions", "apbook"), which reads as a rendering glitch rather
 than an affordance, and the right-hand fade paints over the *active* tab when it is
@@ -137,14 +138,14 @@ and the strip always says "Removed", so the verb the user chose is thrown away. 
 give the scrapbook list the same undo strip; either drop the trash icon or make the strip
 echo the verb ("Used up Garlic confit — Undo").
 
-**M6 — Tap targets under 44 px on the primary actions.** Measured on the phone
+✔️ **Resolved — M6 — Tap targets were under 44 px on the primary actions.** Measured on the phone
 viewport: "Used it up" / "Discarded" 16 px tall, status chip 18 px, footer links 16 px,
 "Share Scrap Alchemy" 16 px, template chips 26 px, "clear" links ~16 px, tab-order
 arrows 24–28 px, banner dismiss 24 px, modal Close 20 px, trash 16 px, header buttons
 36 px. 57 sub-44 px controls on the demo Pantry alone. *Fix:* keep the visual size,
 add padding / `min-height: 44px` hit areas (negative margins keep the layout).
 
-**M7 — Text below 11 px, and two arbitrary Tailwind sizes.** Builder chip status
+✔️ **Resolved — M7 — Text below 11 px, and two arbitrary Tailwind sizes.** Builder chip status
 suffix is `text-[10px]` (`:3385`); the combo "Customize" control is 0.55 rem ≈ 8.8 px
 (`:4814`); the Dropdown panel label is `text-[0.6rem]` (`:5605`). CLAUDE.md notes
 arbitrary values don't compile in the artifact sandbox, so those two labels render at
@@ -485,6 +486,43 @@ polish list's spirit (no change of status).
   of the production build (71 screenshots, tap-target / text-size / overflow / contrast
   measurements). QA harness unchanged at 1638 green. The "Still open" list now points at
   the new section.
+
+## Changelog — Header, tab row, tap targets (September 2026 audit, items M1/M2/M6/M7)
+
+- **M1 — compact header on inner tabs.** Home keeps the full masthead (eyebrow,
+  title, subtitle). Every other tab shows a one-line title beside the Theme and
+  Settings buttons: header 218 → 70 px on a 390 px phone (350 → 70 at Largest text),
+  so content now starts ~150 px higher on seven of eight tabs. Same on desktop.
+- **M2 — tab row.** New `TAB_SHORT_LABELS` used by the nav only, under the `sm`
+  breakpoint: Builder · Pantry · Templates · Scrapbook · Swaps · Storage · Support
+  (row 1105 → 879 px; four tabs visible instead of three). **Copy for the author:**
+  "Swaps" for Substitutions is a proposal — it echoes the tab's own gloss ("swap for
+  the role, not the name"); "Subs" is the alternative. Settings and the Home guide
+  still use the full labels. Swipes now snap to tab boundaries with 40 px padding so
+  the row never rests mid-word; fades are 40 px and the active tab is kept clear of
+  them when it scrolls into view. At `sm` and up the row wraps instead of scrolling,
+  so on desktop all eight tabs are visible (two rows, no hidden scrollbar).
+- **M6 — hit areas.** Two utilities in the app's `<style>`: `.tap` (invisible
+  pseudo-element, +14 px vertical / +8 px horizontal) on 40-odd sparse text links and
+  icon buttons (Used it up / Discarded / Learn more / Undo / clear / footer links /
+  status chip / trash / modal Close / App guide / Customize…), `.tap-sm` (+5 px) on
+  chips packed in rows. Header buttons 36 → 44 px, batch stepper 32 → 40, tab-order
+  arrows 24–28 → 36 (+10), dropdown rows and search fields taller, template-modal
+  mode tabs on one line. Demo-pantry controls under 44 px: 57 → 7, all of them now
+  40–42 px (dropdown triggers and template chips).
+- **M7 — minimum text size.** Builder chip status suffix 10 → 11 px; the "Customize"
+  control 8.8 → 11.2 px; the dropdown panel label uses `text-xs`. No Tailwind
+  arbitrary text-size classes remain (they don't compile in the artifact sandbox).
+- QA harness 1656 → 1666: source scans for the arbitrary classes, sub-11 px inline
+  sizes, the hit-area utilities (defined, used, never on an absolutely positioned
+  element), the compact-header branch, `TAB_SHORT_LABELS` coverage and length, and
+  the fade-clearance scroll rule. esbuild + Vite build verified; measured headlessly
+  before/after (see numbers above).
+- **Verify on the phone:** any inner tab — the title sits on one line beside the
+  two buttons and content starts right under the tab row; swipe the tab row and let
+  go — it settles on a whole tab; on the Pantry, tap just above or below "Used it up"
+  — it should still fire; Templates → any template — the three mode tabs sit on one
+  line; Settings → Tab order — the arrows are easier to hit.
 
 ## Changelog — High fixes from the September 2026 audit
 

@@ -1969,6 +1969,21 @@ const TAB_LABELS = {
   support: "Support",
 };
 
+// Short labels for the nav on narrow screens only (under the sm breakpoint). The
+// Settings panel and the Home guide keep using TAB_LABELS. Eight full labels needed
+// 1105px in a 324px row, so a phone saw three tabs at a time. Every id in TAB_LABELS
+// must have an entry here (QA-checked).
+const TAB_SHORT_LABELS = {
+  home: "Home",
+  builder: "Builder",
+  pantry: "Pantry",
+  templates: "Templates",
+  scrapbook: "Scrapbook",
+  subs: "Swaps",
+  storage: "Storage",
+  support: "Support",
+};
+
 // Icon for each tab id (shared by the nav and the Settings panel so they match).
 const TAB_ICONS = {
   home: HomeIcon,
@@ -2563,7 +2578,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   <button
                     key={name}
                     onClick={() => onOpenTemplate(name)}
-                    className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition"
+                    className="text-xs px-2 py-1.5 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition tap-sm"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {name}
@@ -2590,7 +2605,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
           </span>
           <button
             onClick={undoClearAll}
-            className="flex-shrink-0 text-xs uppercase tracking-widest font-bold text-[var(--accent)] hover:text-[var(--ink)] transition"
+            className="flex-shrink-0 text-xs uppercase tracking-widest font-bold text-[var(--accent)] hover:text-[var(--ink)] transition tap"
           >
             Undo
           </button>
@@ -2629,7 +2644,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
             {(query || filterBy !== "all") && (
               <button
                 onClick={() => { setQuery(""); setFilterBy("all"); }}
-                className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+                className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)] tap"
               >
                 Clear
               </button>
@@ -2638,7 +2653,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
           {query && (
             <button
               onClick={() => setAdding(true)}
-              className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+              className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
             >
               Add “{query}” to your pantry →
             </button>
@@ -2688,7 +2703,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   </span>
                   <button
                     onClick={() => undoRemove(s.id)}
-                    className="flex-shrink-0 text-xs uppercase tracking-widest font-bold text-[var(--accent)] hover:text-[var(--ink)] transition"
+                    className="flex-shrink-0 text-xs uppercase tracking-widest font-bold text-[var(--accent)] hover:text-[var(--ink)] transition tap"
                   >
                     Undo
                   </button>
@@ -2711,7 +2726,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   </div>
                   <button
                     onClick={() => requestRemove(s.id)}
-                    className="text-[var(--ink-soft)] hover:text-[var(--accent)] flex-shrink-0"
+                    className="text-[var(--ink-soft)] hover:text-[var(--accent)] flex-shrink-0 p-2 -m-2 tap"
                     title="Remove"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -2732,7 +2747,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   ) : (
                     <button
                       onClick={() => setExplainStatus(prev => prev === s.id ? null : s.id)}
-                      className="ml-auto font-display font-bold text-right inline-flex items-center gap-1 hover:opacity-80 transition"
+                      className="ml-auto font-display font-bold text-right inline-flex items-center gap-1 hover:opacity-80 transition tap"
                       style={{ color: accentColor, borderBottom: "1px dotted currentColor", paddingBottom: "1px" }}
                       aria-expanded={explainStatus === s.id}
                       title="Why this status?"
@@ -2786,20 +2801,20 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   <div className="mt-3 flex items-center gap-4 flex-wrap">
                     <button
                       onClick={() => requestRemove(s.id)}
-                      className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline"
+                      className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline tap"
                     >
                       Used it up
                     </button>
                     <button
                       onClick={() => requestRemove(s.id)}
-                      className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline"
+                      className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline tap"
                     >
                       Discarded
                     </button>
                     {findDeepDive(s.label || s.type) && openDeepDive && (
                       <button
                         onClick={() => openDeepDive(s.label || s.type)}
-                        className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                        className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                       >
                         Learn more →
                       </button>
@@ -2812,7 +2827,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   <div className="mt-3">
                     <button
                       onClick={() => openDeepDive(s.label || s.type)}
-                      className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                      className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                     >
                       Learn more →
                     </button>
@@ -2837,7 +2852,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
             <div className="mt-3 not-italic">
               <button
                 onClick={requestClearAll}
-                className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline"
+                className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline tap"
               >
                 Clear pantry
               </button>
@@ -2907,7 +2922,7 @@ function PastPrimeSuggestion({ scrap, onOpenTemplate, onUsedUp, onDiscard }) {
           <button
             key={name}
             onClick={() => onOpenTemplate && onOpenTemplate(name)}
-            className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition"
+            className="text-xs px-2 py-1.5 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition tap-sm"
             style={{ backgroundColor: "var(--surface)" }}
           >
             {name}
@@ -2920,7 +2935,7 @@ function PastPrimeSuggestion({ scrap, onOpenTemplate, onUsedUp, onDiscard }) {
         {onUsedUp && (
           <button
             onClick={() => onUsedUp(scrap.id)}
-            className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline"
+            className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline tap"
           >
             Used it up
           </button>
@@ -2928,7 +2943,7 @@ function PastPrimeSuggestion({ scrap, onOpenTemplate, onUsedUp, onDiscard }) {
         {onDiscard && (
           <button
             onClick={() => onDiscard(scrap.id)}
-            className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline"
+            className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline tap"
           >
             Discarded
           </button>
@@ -2997,7 +3012,7 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
               {step === 1 ? "What are you saving?" : "When and where?"}
             </h3>
           </div>
-          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)]" aria-label="Close">
+          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] p-2 -m-2 tap" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -3015,7 +3030,7 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
                     <button
                       key={cat}
                       onClick={() => setCategory(cat)}
-                      className="px-2.5 py-1.5 text-xs uppercase tracking-widest border transition"
+                      className="px-2.5 py-2 text-xs uppercase tracking-widest border transition tap-sm"
                       style={{
                         backgroundColor: category === cat ? "var(--accent)" : "var(--surface)",
                         color: category === cat ? "var(--surface)" : "var(--ink)",
@@ -3241,7 +3256,7 @@ function TodayBanner({ engagement, dismissedItems, onDismiss, onTabChange, onOpe
     >
       <button
         onClick={() => onDismiss(dismissKey)}
-        className="absolute top-2 right-2 text-[var(--ink-soft)] hover:text-[var(--ink)] p-1"
+        className="absolute top-0 right-0 text-[var(--ink-soft)] hover:text-[var(--ink)] p-3.5"
         title="Dismiss"
         aria-label="Dismiss"
       >
@@ -3262,7 +3277,7 @@ function TodayBanner({ engagement, dismissedItems, onDismiss, onTabChange, onOpe
       {item.cta && onTabChange && (
         <button
           onClick={() => { onTabChange(item.cta.tab); onDismiss(dismissKey); }}
-          className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] font-bold flex items-center gap-1.5"
+          className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] font-bold flex items-center gap-1.5 tap"
         >
           {item.cta.label} <ArrowRight className="w-3.5 h-3.5" />
         </button>
@@ -3378,7 +3393,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                 <button
                   key={s.id}
                   onClick={() => toggleScrap(s.id)}
-                  className="px-3 py-1.5 text-sm border transition flex items-center gap-1.5"
+                  className="px-3 py-1.5 text-sm border transition flex items-center gap-1.5 tap-sm"
                   style={{
                     backgroundColor: isSel ? "var(--accent)" : "var(--surface)",
                     color: isSel ? "var(--surface)" : "var(--ink)",
@@ -3390,8 +3405,8 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                   <span>{s.label || s.type}</span>
                   {status.zone !== "custom" && (
                     <span
-                      className="text-[10px] uppercase tracking-widest"
-                      style={{ color: isSel ? "var(--surface)" : (status.tone === "warn" || status.tone === "usesoon") ? "var(--spark-text)" : "var(--accent)" }}
+                      className="uppercase tracking-widest"
+                      style={{ fontSize: "11px", color: isSel ? "var(--surface)" : (status.tone === "warn" || status.tone === "usesoon") ? "var(--spark-text)" : "var(--accent)" }}
                     >
                       · {status.zone === "usesoon" ? "Use soon" : status.text}
                     </span>
@@ -3410,7 +3425,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className="px-3 py-1.5 text-xs uppercase tracking-widest transition border font-bold"
+              className="px-3 py-2 text-xs uppercase tracking-widest transition border font-bold tap-sm"
               style={{
                 backgroundColor: activeCategory === cat ? "var(--accent)" : "var(--surface)",
                 color: activeCategory === cat ? "var(--surface)" : "var(--ink)",
@@ -3439,7 +3454,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                   <button
                     key={item}
                     onClick={() => { toggle(item); setQuery(""); }}
-                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert transition"
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert transition tap-sm"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {item}
@@ -3452,7 +3467,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
                 Have it anyway? Save it in{" "}
                 <button
                   onClick={() => onTabChange("pantry")}
-                  className="not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+                  className="not-italic underline text-[var(--accent)] hover:text-[var(--ink)] tap"
                 >
                   My Pantry
                 </button>{" "}
@@ -3480,7 +3495,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
             >
               <button
                 onClick={() => toggle(item)}
-                className="px-3 py-1.5 text-sm transition"
+                className="px-3 py-1.5 text-sm transition tap-sm"
                 style={{ color: isSel ? "var(--surface)" : "var(--ink)", fontWeight: isSel ? 600 : 400 }}
               >
                 {isSel && <Check className="inline w-3 h-3 mr-1" />}
@@ -3489,7 +3504,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
               {hasDive && openDeepDive && (
                 <button
                   onClick={(e) => { e.stopPropagation(); openDeepDive(item); }}
-                  className="px-2 border-l-2 transition"
+                  className="px-2 border-l-2 transition tap-sm"
                   style={{
                     borderColor: isSel ? "var(--surface-30)" : "var(--border)",
                     color: isSel ? "var(--surface)" : "var(--accent)",
@@ -3529,7 +3544,7 @@ function MealBuilder({ scraps = [], addToScrapbook, openDeepDive, bumpEngagement
             })}
             <button
               onClick={() => { setSelected([]); setSelectedScraps([]); }}
-              className="ml-auto text-xs text-[var(--accent)] underline"
+              className="ml-auto text-xs text-[var(--accent)] underline tap"
             >
               clear all
             </button>
@@ -3738,7 +3753,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
           )}
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-display text-xl sm:text-2xl text-[var(--ink)] truncate">{name}</h3>
-            <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] flex-shrink-0" aria-label="Close">
+            <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] flex-shrink-0 p-2 -m-2 tap" aria-label="Close">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -3752,7 +3767,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
           >
             <button
               onClick={() => setMode("framework")}
-              className={`flex-1 px-3 py-2.5 text-xs uppercase tracking-widest border-b-2 transition flex items-center justify-center gap-1.5 ${
+              className={`flex-1 px-2 py-3 text-xs uppercase tracking-widest border-b-2 transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 mode === "framework"
                   ? "border-[var(--accent)] text-[var(--ink)] font-bold"
                   : "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
@@ -3764,7 +3779,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
             {builder && (
               <button
                 onClick={() => setMode("builder")}
-                className={`flex-1 px-3 py-2.5 text-xs uppercase tracking-widest border-b-2 transition flex items-center justify-center gap-1.5 ${
+                className={`flex-1 px-2 py-3 text-xs uppercase tracking-widest border-b-2 transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   mode === "builder"
                     ? "border-[var(--accent)] text-[var(--ink)] font-bold"
                     : "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
@@ -3777,7 +3792,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
             {story && (
               <button
                 onClick={() => setMode("story")}
-                className={`flex-1 px-3 py-2.5 text-xs uppercase tracking-widest border-b-2 transition flex items-center justify-center gap-1.5 ${
+                className={`flex-1 px-2 py-3 text-xs uppercase tracking-widest border-b-2 transition flex items-center justify-center gap-1.5 whitespace-nowrap ${
                   mode === "story"
                     ? "border-[var(--accent)] text-[var(--ink)] font-bold"
                     : "border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]"
@@ -3812,7 +3827,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
                   {builder && (
                     <button
                       onClick={() => setMode("builder")}
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                     >
                       <Wand2 className="w-3.5 h-3.5" />
                       Build mine →
@@ -3821,7 +3836,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
                   {story && (
                     <button
                       onClick={() => setMode("story")}
-                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                      className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                     >
                       <Quote className="w-3.5 h-3.5" />
                       Read the story →
@@ -4677,7 +4692,7 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
           <button
             onClick={() => setScale(s => Math.max(0.5, s - 0.5))}
             disabled={scale <= 0.5}
-            className="w-8 h-8 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--ink)] hover:border-[var(--accent)] disabled:opacity-40"
+            className="w-10 h-10 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--ink)] hover:border-[var(--accent)] disabled:opacity-40"
             style={{ backgroundColor: "var(--surface)" }}
             aria-label="Decrease batch size"
           >
@@ -4689,7 +4704,7 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
           <button
             onClick={() => setScale(s => Math.min(4, s + 0.5))}
             disabled={scale >= 4}
-            className="w-8 h-8 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--ink)] hover:border-[var(--accent)] disabled:opacity-40"
+            className="w-10 h-10 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--ink)] hover:border-[var(--accent)] disabled:opacity-40"
             style={{ backgroundColor: "var(--surface)" }}
             aria-label="Increase batch size"
           >
@@ -4716,7 +4731,7 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
             {pickedList(slot.id).length > 0 && (
               <button
                 onClick={() => { clearComboStateForSlot(slot.id); setPicks(p => { const { [slot.id]: _, ...rest } = p; return rest; }); }}
-                className="text-xs text-[var(--accent)] hover:text-[var(--ink)] underline whitespace-nowrap flex-shrink-0"
+                className="text-xs text-[var(--accent)] hover:text-[var(--ink)] underline whitespace-nowrap flex-shrink-0 tap"
               >
                 clear
               </button>
@@ -4837,12 +4852,12 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
                   <div className="flex justify-end px-2.5 pb-2">
                     <button
                       onClick={() => toggleCombo(slot.id, opt.name)}
-                      className="flex items-center gap-1 px-1.5 py-1 rounded hover:bg-[var(--surface-warm)]"
+                      className="flex items-center gap-1 px-1.5 py-1 rounded hover:bg-[var(--surface-warm)] tap"
                       style={{ color: expanded ? "var(--spark-text)" : "var(--ink-faint)" }}
                       aria-label={expanded ? "Hide individual ingredients" : "Customize individual ingredients"}
                     >
                       <SlidersHorizontal style={{ width: "0.7rem", height: "0.7rem" }} />
-                      <span style={{ fontSize: "0.55rem", letterSpacing: "0.06em" }} className="uppercase flex items-center gap-0.5">
+                      <span style={{ fontSize: "0.7rem", letterSpacing: "0.06em" }} className="uppercase flex items-center gap-0.5">
                         Customize
                         <ChevronDown style={{ width: "0.6rem", height: "0.6rem", transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }} className="transition-transform" />
                       </span>
@@ -4901,7 +4916,7 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
                           <button
                             key={label}
                             onClick={() => addInjectedToSlot(slot.id, label)}
-                            className="px-2.5 py-1 text-xs border border-[var(--moss-60)] hover:bg-[var(--surface-warm)]"
+                            className="px-2.5 py-1 text-xs border border-[var(--moss-60)] hover:bg-[var(--surface-warm)] tap-sm"
                             style={{ color: "var(--ink)", backgroundColor: "var(--surface)" }}
                           >
                             + {label}
@@ -4944,7 +4959,7 @@ function RecipeBuilder({ name, builder, addToScrapbook, seedScraps = [], seedIng
           ) : (
             <button
               onClick={() => { setAddingToSlot(slot.id); setCustomText(""); }}
-              className="mt-2 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1"
+              className="mt-2 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 tap"
             >
               <Plus className="w-3 h-3" /> Add another ingredient
             </button>
@@ -4992,7 +5007,7 @@ function SubstitutionFinder({ openDeepDive }) {
         value={query}
         onChange={e => setQuery(e.target.value)}
         placeholder="Search… (lemon, butter, parmesan…)"
-        className="w-full px-4 py-2 bg-[var(--surface)] border border-[var(--border)] rounded-[3px] focus:border-[var(--accent)] outline-none text-[var(--ink)]"
+        className="w-full px-4 py-2.5 bg-[var(--surface)] border border-[var(--border)] rounded-[3px] focus:border-[var(--accent)] outline-none text-[var(--ink)]"
       />
 
       {/* No results — explain the role-based way of thinking and route to real content */}
@@ -5011,7 +5026,7 @@ function SubstitutionFinder({ openDeepDive }) {
                   <button
                     key={item}
                     onClick={() => setQuery(item)}
-                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert transition"
+                    className="px-3 py-1.5 text-sm border border-[var(--accent)] rounded-[3px] text-[var(--accent)] chip-invert transition tap-sm"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {item}
@@ -5022,7 +5037,7 @@ function SubstitutionFinder({ openDeepDive }) {
             {dive && openDeepDive && (
               <button
                 onClick={() => openDeepDive(query.trim())}
-                className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
               >
                 Read the deep-dive on {dive.name} →
               </button>
@@ -5078,7 +5093,7 @@ function SubstitutionFinder({ openDeepDive }) {
                   {hasDive && openDeepDive && (
                     <button
                       onClick={() => openDeepDive(item)}
-                      className="mt-3 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                      className="mt-3 text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                     >
                       Learn more about {item} →
                     </button>
@@ -5143,7 +5158,7 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
           <button
             key={cat}
             onClick={() => setFilter(cat)}
-            className="px-3 py-1.5 text-xs uppercase tracking-widest transition border"
+            className="px-3 py-2 text-xs uppercase tracking-widest transition border tap-sm"
             style={{
               backgroundColor: filter === cat ? "var(--accent)" : "var(--surface)",
               color: filter === cat ? "var(--surface)" : "var(--ink)",
@@ -5172,7 +5187,7 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
                     if (isCategory) { setFilter(near[0]); setQuery(""); }
                     else { setQuery(near[0]); setFilter("All"); }
                   }}
-                  className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                  className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                 >
                   Closest match: {near[0]} →
                 </button>
@@ -5214,7 +5229,7 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
                 {dive && openDeepDive && (
                   <button
                     onClick={() => openDeepDive(diveKey)}
-                    className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                    className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                   >
                     Learn more →
                   </button>
@@ -5222,7 +5237,7 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
                 {item.template && onOpenTemplate && (
                   <button
                     onClick={() => onOpenTemplate(item.template)}
-                    className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold"
+                    className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-semibold tap"
                   >
                     Try {item.template} →
                   </button>
@@ -5310,7 +5325,7 @@ function Scrapbook({ entries, addEntry, removeEntry, loaded, incModal, decModal,
           None of your saved recipes match “{query}”.
           <button
             onClick={() => setQuery("")}
-            className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)]"
+            className="ml-1 not-italic underline text-[var(--accent)] hover:text-[var(--ink)] tap"
           >
             Clear
           </button>
@@ -5356,7 +5371,7 @@ function Scrapbook({ entries, addEntry, removeEntry, loaded, incModal, decModal,
               <div className="border-t border-[var(--border-60)] px-4 py-2 flex justify-end">
                 <button
                   onClick={(e) => { e.stopPropagation(); setSharing(entry); }}
-                  className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 font-semibold"
+                  className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 font-semibold tap"
                 >
                   <Share2 className="w-3 h-3" />
                   Share
@@ -5451,7 +5466,7 @@ function ScrapbookAddModal({ onAdd, onClose, incModal, decModal }) {
             <div className="text-xs uppercase tracking-widest text-[var(--accent)]">New entry</div>
             <h3 className="font-display text-xl text-[var(--ink)]">Save a discovery</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)]" aria-label="Close">
+          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] p-2 -m-2 tap" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -5578,14 +5593,14 @@ function Toast({ toast, onUndo, onDismiss }) {
         {toast.undo && (
           <button
             onClick={onUndo}
-            className="flex-shrink-0 text-xs uppercase tracking-widest font-bold text-[var(--accent)] hover:text-[var(--ink)] transition"
+            className="flex-shrink-0 text-xs uppercase tracking-widest font-bold text-[var(--accent)] hover:text-[var(--ink)] transition tap"
           >
             Undo
           </button>
         )}
         <button
           onClick={onDismiss}
-          className="flex-shrink-0 text-[var(--ink-soft)] hover:text-[var(--ink)] transition"
+          className="flex-shrink-0 text-[var(--ink-soft)] hover:text-[var(--ink)] transition p-2 -m-2 tap"
           aria-label="Dismiss"
         >
           <X className="w-4 h-4" />
@@ -5602,7 +5617,7 @@ function Dropdown({ label, value, options, onChange, active = false, align = "le
     <div className="relative flex-1 min-w-0">
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2 border px-3 py-2.5 text-xs uppercase tracking-widest font-semibold transition outline-none"
+        className="w-full flex items-center gap-2 border px-3 py-3 text-xs uppercase tracking-widest font-semibold transition outline-none"
         style={{
           backgroundColor: "var(--surface)",
           borderColor: active || open ? "var(--accent)" : "var(--border)",
@@ -5633,7 +5648,7 @@ function Dropdown({ label, value, options, onChange, active = false, align = "le
           >
             {label && (
               <div
-                className="px-3 py-2 text-[0.6rem] uppercase tracking-widest font-bold border-b"
+                className="px-3 py-2 text-xs uppercase tracking-widest font-bold border-b"
                 style={{ color: "var(--ink-soft)", borderColor: "var(--border-60)", backgroundColor: "var(--surface-alert)" }}
               >
                 {label}
@@ -5645,7 +5660,7 @@ function Dropdown({ label, value, options, onChange, active = false, align = "le
                 <button
                   key={o.value}
                   onClick={() => { onChange(o.value); setOpen(false); }}
-                  className="w-full text-left px-3 py-2.5 text-xs uppercase tracking-widest font-semibold flex items-center justify-between gap-2 border-b last:border-b-0 transition hover:brightness-110 active:brightness-95"
+                  className="w-full text-left px-3 py-3 text-xs uppercase tracking-widest font-semibold flex items-center justify-between gap-2 border-b last:border-b-0 transition hover:brightness-110 active:brightness-95"
                   style={{
                     borderColor: "var(--border-60)",
                     backgroundColor: isActive ? "var(--surface-alert)" : "transparent",
@@ -5674,7 +5689,7 @@ function SearchInput({ value, onChange, placeholder }) {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full px-4 py-2 pr-9 border border-[var(--border)] rounded-[3px] focus:border-[var(--accent)] outline-none text-[var(--ink)]"
+        className="w-full px-4 py-2.5 pr-9 border border-[var(--border)] rounded-[3px] focus:border-[var(--accent)] outline-none text-[var(--ink)]"
         style={{ backgroundColor: "var(--surface)" }}
       />
       {value && (
@@ -5977,7 +5992,7 @@ function Support({ openShareApp, engagement }) {
             </p>
             <button
               onClick={openShareApp}
-              className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-bold flex items-center justify-center gap-1.5 w-full"
+              className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline font-bold flex items-center justify-center gap-1.5 w-full tap"
             >
               <Share2 className="w-3.5 h-3.5" />
               Share Scrap Alchemy
@@ -6323,7 +6338,7 @@ function ShareCardModal({ entry, onClose, incModal, decModal }) {
             <div className="text-xs uppercase tracking-widest text-[var(--accent)]">Share</div>
             <h3 className="font-display text-xl text-[var(--ink)]">Recipe Card</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)]" aria-label="Close">
+          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] p-2 -m-2 tap" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -6425,7 +6440,7 @@ function ScrapbookEntryModal({ entry, onClose, onDelete, incModal, decModal, ope
               <div className="text-xs italic text-[var(--ink-soft)]">based on {entry.template}</div>
             )}
           </div>
-          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] flex-shrink-0 mt-1" aria-label="Close">
+          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] flex-shrink-0 mt-1 p-2 -m-2 tap" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -6570,7 +6585,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
               <div className="text-xs uppercase tracking-widest text-[var(--accent)] mb-0.5">{ingredient.role}</div>
               <h3 className="font-display text-xl sm:text-2xl text-[var(--ink)]">{ingredient.name}</h3>
             </div>
-            <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] flex-shrink-0 mt-1" aria-label="Close">
+            <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] flex-shrink-0 mt-1 p-2 -m-2 tap" aria-label="Close">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -6625,7 +6640,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
                     return (
                       <span
                         key={sub}
-                        className="text-xs px-2 py-1 border border-[var(--border)] rounded-[3px] text-[var(--ink)]"
+                        className="text-xs px-2 py-1.5 border border-[var(--border)] rounded-[3px] text-[var(--ink)] tap-sm"
                         style={{ backgroundColor: "var(--surface)" }}
                       >
                         {sub}
@@ -6636,7 +6651,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
                     <button
                       key={sub}
                       onClick={() => onOpenDeepDive(sub)}
-                      className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition"
+                      className="text-xs px-2 py-1.5 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold inline-flex items-center gap-1 chip-invert transition tap-sm"
                       style={{ backgroundColor: "var(--surface)" }}
                       title={`Learn about ${sub}`}
                     >
@@ -6658,7 +6673,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
                   <button
                     key={t}
                     onClick={() => { if (onOpenTemplate) onOpenTemplate(t); }}
-                    className="text-xs px-2 py-1 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold chip-invert transition"
+                    className="text-xs px-2 py-1.5 border border-[var(--accent)] rounded-[3px] text-[var(--accent)] font-semibold chip-invert transition tap-sm"
                     style={{ backgroundColor: "var(--surface)" }}
                   >
                     {t} →
@@ -6744,10 +6759,10 @@ function HowItWorksBody({ onGoTo, showHeading = true, tabOrder = null }) {
               <button
                 key={id}
                 onClick={() => onGoTo && onGoTo(id)}
-                className="w-full flex items-baseline gap-2 text-xs text-left py-1 px-1 -mx-1 rounded-[3px] hover:bg-[var(--accent-10)] transition"
+                className="w-full flex items-baseline gap-2 text-xs text-left py-2.5 px-1 -mx-1 rounded-[3px] hover:bg-[var(--accent-10)] transition"
               >
                 {Icon && <Icon className="w-3.5 h-3.5 text-[var(--accent)] flex-shrink-0 self-center" />}
-                <span className="font-bold text-[var(--accent)] whitespace-nowrap" style={{ textDecoration: "underline", textUnderlineOffset: "2px" }}>{TAB_LABELS[id]}</span>
+                <span className="font-bold text-[var(--accent)] whitespace-nowrap tap" style={{ textDecoration: "underline", textUnderlineOffset: "2px" }}>{TAB_LABELS[id]}</span>
                 <span className="text-[var(--ink-soft)] italic">— {TAB_NOTES[id]}</span>
               </button>
             );
@@ -6896,7 +6911,7 @@ function HomeTab({ scraps = [], scrapbook = [], engagement, dismissedItems, dism
         <div className="border-t border-dashed border-[var(--border-60)] pt-4">
           <button
             onClick={() => setShowGuide(v => !v)}
-            className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)]"
+            className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] tap"
           >
             <ChevronDown className="w-3.5 h-3.5 transition-transform" style={{ transform: showGuide ? "rotate(180deg)" : "none" }} />
             App guide
@@ -6951,7 +6966,7 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
             <Settings className="w-4 h-4 text-[var(--accent)]" />
             <h3 className="font-display text-xl text-[var(--ink)]">Settings</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)]" aria-label="Close">
+          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] p-2 -m-2 tap" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -7082,7 +7097,7 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
                             <button
                               onClick={() => setTabOrder(moveGroup(tabOrder, g.id, -1))}
                               disabled={!canGroupUp}
-                              className="w-7 h-7 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)]"
+                              className="w-9 h-9 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)] tap-sm"
                               aria-label={`Move ${gMeta.label} group up`}
                             >
                               <ChevronLeft className="w-3.5 h-3.5" style={{ transform: "rotate(90deg)" }} />
@@ -7090,7 +7105,7 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
                             <button
                               onClick={() => setTabOrder(moveGroup(tabOrder, g.id, 1))}
                               disabled={!canGroupDown}
-                              className="w-7 h-7 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)]"
+                              className="w-9 h-9 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)] tap-sm"
                               aria-label={`Move ${gMeta.label} group down`}
                             >
                               <ChevronDown className="w-3.5 h-3.5" />
@@ -7112,7 +7127,7 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
                                 <button
                                   onClick={() => setTabOrder(moveTabInGroup(tabOrder, g.id, tid, -1))}
                                   disabled={ti === 0}
-                                  className="w-6 h-6 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)]"
+                                  className="w-9 h-9 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)] tap-sm"
                                   aria-label={`Move ${TAB_LABELS[tid]} up`}
                                 >
                                   <ChevronLeft className="w-3 h-3" style={{ transform: "rotate(90deg)" }} />
@@ -7120,7 +7135,7 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
                                 <button
                                   onClick={() => setTabOrder(moveTabInGroup(tabOrder, g.id, tid, 1))}
                                   disabled={ti === g.tabs.length - 1}
-                                  className="w-6 h-6 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)]"
+                                  className="w-9 h-9 flex items-center justify-center border border-[var(--border)] rounded-[3px] disabled:opacity-30 hover:border-[var(--accent)] text-[var(--accent)] tap-sm"
                                   aria-label={`Move ${TAB_LABELS[tid]} down`}
                                 >
                                   <ChevronDown className="w-3 h-3" />
@@ -7137,7 +7152,7 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
               </div>
               <button
                 onClick={() => setTabOrder(defaultTabOrder())}
-                className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline mt-3"
+                className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline mt-3 tap"
               >
                 Reset to default order
               </button>
@@ -7219,7 +7234,7 @@ function ShareAppModal({ onClose, incModal, decModal }) {
             <div className="text-xs uppercase tracking-widest text-[var(--accent)]">Share the app</div>
             <h3 className="font-display text-xl text-[var(--ink)]">Tell a friend</h3>
           </div>
-          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)]" aria-label="Close">
+          <button onClick={onClose} className="text-[var(--ink)] hover:text-[var(--accent)] p-2 -m-2 tap" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -7458,6 +7473,10 @@ export default function App() {
   // wide screens where everything fits.
   const tabScrollRef = useRef(null);
   const tabBtnRefs = useRef({}); // id -> button el, for scrolling the active tab into view
+  // Width of the edge fades; the active tab is always kept this far inside the row so
+  // a fade never paints over it, and swipes snap with this much padding.
+  const TAB_FADE_PX = "40px";
+  const TAB_FADE = 40;
   const [tabOverflow, setTabOverflow] = useState({ left: false, right: false });
   const updateTabOverflow = () => {
     const el = tabScrollRef.current;
@@ -7486,10 +7505,12 @@ export default function App() {
       const btnRight = btnLeft + btn.offsetWidth;
       const viewLeft = el.scrollLeft;
       const viewRight = viewLeft + el.clientWidth;
-      if (btnLeft < viewLeft) {
-        el.scrollTo({ left: btnLeft - 12, behavior: "smooth" });
-      } else if (btnRight > viewRight) {
-        el.scrollTo({ left: btnRight - el.clientWidth + 12, behavior: "smooth" });
+      // Keep the active tab clear of the edge fades (not merely on screen), so the
+      // fade never paints over the tab the user just chose.
+      if (btnLeft < viewLeft + TAB_FADE) {
+        el.scrollTo({ left: btnLeft - TAB_FADE, behavior: "smooth" });
+      } else if (btnRight > viewRight - TAB_FADE) {
+        el.scrollTo({ left: btnRight - el.clientWidth + TAB_FADE, behavior: "smooth" });
       }
     }
     updateTabOverflow();
@@ -8066,6 +8087,8 @@ export default function App() {
   // Tab metadata (label + icon) keyed by id, both from the shared module-level
   // maps so the nav and Settings never drift. Order comes from tabOrder, flattened.
   const tabs = flattenTabOrder(tabOrder).map(id => ({ id, label: TAB_LABELS[id], icon: TAB_ICONS[id] }));
+  // Full masthead on Home only; a one-line title everywhere else (see the header).
+  const compactHeader = tab !== "home";
 
   return (
     <div
@@ -8151,6 +8174,15 @@ export default function App() {
         .scrap-app textarea,
         .scrap-app select { border-radius: 3px; }
         .font-hand { font-family: 'Caveat', 'Bradley Hand', cursive; }
+        /* Tap targets. Small text links and icon buttons keep their visual size but
+           get a ~44px hit area through an invisible pseudo-element, so nothing shifts.
+           .tap is for sparse inline links/icons (+14px vertical, +8px horizontal);
+           .tap-sm is for chips packed in gap-2 rows (+5px all round, so neighbours
+           barely overlap). Never put .tap on an absolutely positioned element — it sets
+           position: relative; give those padding instead. */
+        .scrap-app .tap, .scrap-app .tap-sm { position: relative; }
+        .scrap-app .tap::before { content: ""; position: absolute; left: -8px; right: -8px; top: -14px; bottom: -14px; }
+        .scrap-app .tap-sm::before { content: ""; position: absolute; inset: -5px; }
         /* Outlined accent chips that fill on hover/press (.chip-invert). These carry an
            inline surface background, so a Tailwind hover:text-surface class used to win
            the text colour while losing the background — white-on-white. iOS Safari keeps
@@ -8202,11 +8234,18 @@ export default function App() {
         .settings-fixed-text { font-size: 0.8rem !important; }
       `}</style>
 
-      {/* Header */}
+      {/* Header. Home gets the full masthead (eyebrow, title, subtitle); every other
+          tab gets a one-line title so content starts near the top of the phone — the
+          full block plus the sticky nav used to take a third of an iPhone screen on
+          every tab, and 41% at the largest text size. */}
       <header className="border-b-2 border-[var(--ink)] bg-[var(--surface)]" style={{ backgroundColor: "var(--surface)" }}>
-        <div className="max-w-4xl mx-auto px-6 py-8">
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-[var(--ink-soft)]">The art of cooking with what you have</span>
+        <div className={`max-w-4xl mx-auto px-6 ${compactHeader ? "py-3" : "py-8"}`}>
+          <div className={`flex ${compactHeader ? "items-center" : "items-start"} justify-between gap-3 ${compactHeader ? "" : "mb-2"}`}>
+            {compactHeader ? (
+              <h1 className="font-display text-2xl text-[var(--ink)] truncate">Scrap Alchemy</h1>
+            ) : (
+              <span className="text-xs uppercase tracking-[0.3em] text-[var(--ink-soft)]">The art of cooking with what you have</span>
+            )}
             {/* Quick controls — Theme + Settings. How-this-works now lives on the
                 Home tab (the front door), so the standalone Help button is gone. */}
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -8216,7 +8255,7 @@ export default function App() {
                   const i = order.indexOf(theme);
                   setTheme(order[(i + 1) % order.length]);
                 }}
-                className="w-9 h-9 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--accent)] hover:border-[var(--accent)] transition"
+                className="w-11 h-11 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--accent)] hover:border-[var(--accent)] transition"
                 style={{ backgroundColor: "var(--surface)" }}
                 title={
                   theme === "light" ? "Theme: Light — tap for Dark" :
@@ -8231,7 +8270,7 @@ export default function App() {
               </button>
               <button
                 onClick={() => setSettingsOpen(true)}
-                className="w-9 h-9 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--accent)] hover:border-[var(--accent)] transition"
+                className="w-11 h-11 flex items-center justify-center border border-[var(--border)] rounded-[3px] text-[var(--accent)] hover:border-[var(--accent)] transition"
                 style={{ backgroundColor: "var(--surface)" }}
                 title="Settings"
                 aria-label="Settings"
@@ -8240,12 +8279,16 @@ export default function App() {
               </button>
             </div>
           </div>
-          <h1 className="font-display text-4xl sm:text-5xl text-[var(--ink)] mb-2">
-            Scrap Alchemy
-          </h1>
-          <p className="text-sm text-[var(--ink-soft)] italic max-w-xl">
-            Turn leftovers and scraps into meals worth eating. Tell it what you have — let it show you what's possible.
-          </p>
+          {!compactHeader && (
+            <>
+              <h1 className="font-display text-4xl sm:text-5xl text-[var(--ink)] mb-2">
+                Scrap Alchemy
+              </h1>
+              <p className="text-sm text-[var(--ink-soft)] italic max-w-xl">
+                Turn leftovers and scraps into meals worth eating. Tell it what you have — let it show you what's possible.
+              </p>
+            </>
+          )}
         </div>
       </header>
 
@@ -8255,7 +8298,9 @@ export default function App() {
           {/* Home is a fixed anchor to the LEFT of the scrolling row (not inside it,
               so nothing scrolls under/through it). It collapses to icon-only once the
               row is scrolled right, to save width. The remaining tabs scroll beside it. */}
-          <div className="flex items-stretch gap-1 py-2">
+          {/* items-start once the row can wrap (sm+), so the Home anchor matches one
+              row of tabs instead of stretching across both. */}
+          <div className="flex items-stretch sm:items-start gap-1 py-2">
             {(() => {
               const homeTab = tabs.find(t => t.id === "home");
               if (!homeTab) return null;
@@ -8267,7 +8312,7 @@ export default function App() {
                   onClick={() => setTab("home")}
                   title="Home"
                   aria-label="Home"
-                  className={`flex items-center gap-2 py-2.5 text-sm whitespace-nowrap border transition font-semibold flex-shrink-0 ${
+                  className={`flex items-center gap-2 py-3 text-sm whitespace-nowrap border transition font-semibold flex-shrink-0 ${
                     collapsed ? "px-2.5" : "px-4"
                   } ${isActive ? "shadow-sm" : "hover:border-[var(--accent)] hover:text-[var(--ink)]"}`}
                   style={{
@@ -8289,8 +8334,16 @@ export default function App() {
               <div
                 ref={tabScrollRef}
                 onScroll={updateTabOverflow}
-                className="flex gap-1 overflow-x-auto"
-                style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                className="flex gap-1 overflow-x-auto sm:flex-wrap sm:overflow-visible"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                  // Swipes settle on a tab boundary, so the row never rests mid-word;
+                  // the padding keeps the resting tab clear of the edge fades.
+                  scrollSnapType: "x proximity",
+                  scrollPaddingLeft: TAB_FADE_PX,
+                  scrollPaddingRight: TAB_FADE_PX,
+                }}
               >
                 {tabs.filter(t => t.id !== "home").map(t => {
                   const Icon = t.icon;
@@ -8300,7 +8353,7 @@ export default function App() {
                       key={t.id}
                       ref={el => { tabBtnRefs.current[t.id] = el; }}
                       onClick={() => setTab(t.id)}
-                      className={`flex items-center gap-2 px-4 py-2.5 text-sm whitespace-nowrap border transition font-semibold flex-shrink-0 ${
+                      className={`flex items-center gap-2 px-4 py-3 text-sm whitespace-nowrap border transition font-semibold flex-shrink-0 ${
                         isActive ? "shadow-sm" : "hover:border-[var(--accent)] hover:text-[var(--ink)]"
                       }`}
                       style={{
@@ -8309,10 +8362,12 @@ export default function App() {
                         borderColor: isActive ? "var(--accent)" : "var(--border)",
                         borderBottomColor: isActive ? "var(--spark)" : "var(--border)",
                         borderBottomWidth: isActive ? "3px" : "2px",
+                        scrollSnapAlign: "start",
                       }}
                     >
                       <Icon className="w-4 h-4 flex-shrink-0" style={{ color: isActive ? "var(--surface)" : "var(--ink-soft)" }} />
-                      {t.label}
+                      <span className="sm:hidden">{TAB_SHORT_LABELS[t.id] || t.label}</span>
+                      <span className="hidden sm:inline">{t.label}</span>
                     </button>
                   );
                 })}
@@ -8322,7 +8377,7 @@ export default function App() {
                 aria-hidden="true"
                 className="pointer-events-none absolute top-0 bottom-0 left-0 transition-opacity duration-200"
                 style={{
-                  width: "1.5rem",
+                  width: TAB_FADE_PX,
                   opacity: tabOverflow.left ? 1 : 0,
                   background: "linear-gradient(to right, var(--surface), transparent)",
                 }}
@@ -8332,7 +8387,7 @@ export default function App() {
                 aria-hidden="true"
                 className="pointer-events-none absolute top-0 bottom-0 right-0 transition-opacity duration-200"
                 style={{
-                  width: "1.5rem",
+                  width: TAB_FADE_PX,
                   opacity: tabOverflow.right ? 1 : 0,
                   background: "linear-gradient(to left, var(--surface), transparent)",
                 }}
@@ -8419,7 +8474,7 @@ export default function App() {
           <div className="flex items-center justify-center gap-x-4 gap-y-2 flex-wrap">
             <button
               onClick={() => setShareAppOpen(true)}
-              className="text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 uppercase tracking-widest font-semibold"
+              className="text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 uppercase tracking-widest font-semibold tap"
             >
               <Share2 className="w-3 h-3" />
               Share the app
@@ -8427,7 +8482,7 @@ export default function App() {
             <span className="text-[var(--border)]">·</span>
             <button
               onClick={() => setTab("support")}
-              className="text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 uppercase tracking-widest font-semibold"
+              className="text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 uppercase tracking-widest font-semibold tap"
             >
               <Heart className="w-3 h-3" />
               Support
@@ -8435,7 +8490,7 @@ export default function App() {
             <span className="text-[var(--border)]">·</span>
             <button
               onClick={() => setSettingsOpen(true)}
-              className="text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 uppercase tracking-widest font-semibold"
+              className="text-[var(--accent)] hover:text-[var(--ink)] flex items-center gap-1 uppercase tracking-widest font-semibold tap"
             >
               <Settings className="w-3 h-3" />
               Settings

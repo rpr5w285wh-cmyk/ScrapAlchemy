@@ -1074,6 +1074,26 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   // H2: the newsletter prompt is gated on a configured endpoint at the call site.
   check("newsletter prompt gated on EXTERNAL_LINKS.newsletterEndpoint", /nextEarnedPrompt\(engagement, daysInstalled, \{[\s\S]{0,80}newsletterEndpoint/.test(src));
   check("EXTERNAL_LINKS has a newsletterEndpoint slot", /newsletterEndpoint: null/.test(src));
+  // M7: no text under 11px, and no Tailwind arbitrary text-size classes (they don't
+  // compile in the artifact sandbox, so the same label would render two sizes).
+  check("no Tailwind arbitrary text-size classes", !/text-\[\d+(\.\d+)?(px|rem)\]/.test(src));
+  check("no inline font size under 0.65rem / 11px", !/fontSize: "0\.[0-5]\d*rem"/.test(src) && !/fontSize: "(?:[0-9]|10)px"/.test(src));
+  // M6: the hit-area utilities exist and are used.
+  check("tap hit-area utility defined", /\.scrap-app \.tap::before \{ content: ""; position: absolute;/.test(src));
+  check("tap utilities used widely", (src.match(/ tap"/g) || []).length >= 25 && (src.match(/ tap-sm"/g) || []).length >= 10);
+  check("no .tap on an absolutely positioned element", !/className="[^"]*\babsolute\b[^"]*\btap\b[^"]*"/.test(src) && !/className="[^"]*\btap\b[^"]*\babsolute\b[^"]*"/.test(src));
+  // M1: the header collapses on inner tabs.
+  check("header has a compact mode on inner tabs", /const compactHeader = tab !== "home";/.test(src) && /compactHeader \? "py-3" : "py-8"/.test(src));
+}
+
+// ---- 29. Tab labels: short labels cover every tab and stay short --------------------
+{
+  const full = eval("(" + extractObjConst("TAB_LABELS") + ")");
+  const short = eval("(" + extractObjConst("TAB_SHORT_LABELS") + ")");
+  check("short labels: same ids as TAB_LABELS", Object.keys(full).sort().join() === Object.keys(short).sort().join());
+  check("short labels: none longer than 9 characters", Object.values(short).every(l => l.length <= 9));
+  check("short labels: Home stays Home", short.home === "Home");
+  check("nav keeps the active tab clear of the fades", /btnLeft < viewLeft \+ TAB_FADE/.test(src) && /btnRight > viewRight - TAB_FADE/.test(src));
 }
 
 console.log(`\n${pass} passed, ${fail} failed  (${pass + fail} assertions)`);
