@@ -2342,7 +2342,11 @@ function LocationTag({ location, className = "", iconClass = "w-3 h-3", style })
 //   usesoon  — inside the range; likely still fine, finish up & trust your senses
 //   past     — beyond the outer end; treat as past its prime
 // Items with no outer range behave as a single-point expiry (good → past).
-function formatDaysLeft(daysToShort, daysToOuter = null) {
+// `shortDays` (the type's cautious shelf life, in days) scales the "warn" threshold:
+// warn inside the last 3 days, but never for more than half the type's whole range —
+// otherwise a 3-day leftover is orange the day it goes in and the colour means nothing.
+function formatDaysLeft(daysToShort, daysToOuter = null, shortDays = null) {
+  const warnAt = shortDays === null ? 3 : Math.max(1, Math.min(3, Math.ceil(shortDays / 2)));
   const hasWindow = daysToOuter !== null && daysToOuter > daysToShort;
 
   // Past the outer end (or past the single point) — over the line.
@@ -2358,7 +2362,7 @@ function formatDaysLeft(daysToShort, daysToOuter = null) {
   const days = daysToShort;
   if (days === 0) return { text: "Use today", tone: "warn", zone: "good" };
   if (days === 1) return { text: "1 day left", tone: "warn", zone: "good" };
-  if (days <= 3) return { text: `${days} days left`, tone: "warn", zone: "good" };
+  if (days <= warnAt) return { text: `${days} days left`, tone: "warn", zone: "good" };
   if (days <= 7) return { text: `${days} days left`, tone: "ok", zone: "good" };
   if (days < 30) return { text: `${days} days left`, tone: "ok", zone: "good" };
   if (days < 60) return { text: `~${Math.round(days/7)} weeks left`, tone: "ok", zone: "good" };
@@ -2382,7 +2386,7 @@ function enrichScrap(s, today) {
   const sortKey = isCustom ? Infinity : (daysToOuter !== null ? daysToOuter : daysLeft);
   const status = isCustom
     ? { text: "No expiry tracked", zone: "custom", tone: "ok" }
-    : formatDaysLeft(daysLeft, daysToOuter);
+    : formatDaysLeft(daysLeft, daysToOuter, shortDays);
   const zone = status.zone;
   const needsSoon = !isCustom && (zone === "usesoon" || status.tone === "warn");
   // statusText is the single source of truth for how this item's status reads —
@@ -2416,8 +2420,10 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
   // living only in the page footnote.
   const [explainStatus, setExplainStatus] = useState(null);
 
-  const requestRemove = (id) => {
-    setPendingRemoval(prev => ({ ...prev, [id]: true }));
+  // `verb` is what the user said happened — "used", "discarded" or "removed" — and the
+  // undo strip echoes it, so the three finishing actions read as three outcomes.
+  const requestRemove = (id, verb = "removed") => {
+    setPendingRemoval(prev => ({ ...prev, [id]: verb }));
     if (removalTimers.current[id]) clearTimeout(removalTimers.current[id]);
     removalTimers.current[id] = setTimeout(() => {
       removeScrap(id, true);
@@ -2714,7 +2720,8 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                   aria-live="polite"
                 >
                   <span className="flex-1 text-sm text-[var(--ink-soft)] min-w-0 truncate">
-                    Removed <span className="text-[var(--ink)] font-semibold">{s.label || s.type}</span>
+                    {pendingRemoval[s.id] === "used" ? "Used up" : pendingRemoval[s.id] === "discarded" ? "Discarded" : "Removed"}{" "}
+                    <span className="text-[var(--ink)] font-semibold">{s.label || s.type}</span>
                   </span>
                   <button
                     onClick={() => undoRemove(s.id)}
@@ -2740,9 +2747,10 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                     )}
                   </div>
                   <button
-                    onClick={() => requestRemove(s.id)}
+                    onClick={() => requestRemove(s.id, "removed")}
                     className="text-[var(--ink-soft)] hover:text-[var(--accent)] flex-shrink-0 p-2 -m-2 tap"
-                    title="Remove"
+                    title="Remove from the list"
+                    aria-label="Remove from the list"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -2806,7 +2814,7 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                 )}
                 {/* Past its prime — surface senses-first suggestions */}
                 {status.zone === "past" && (
-                  <PastPrimeSuggestion scrap={s} onOpenTemplate={onOpenTemplate} onUsedUp={requestRemove} onDiscard={requestRemove} />
+                  <PastPrimeSuggestion scrap={s} onOpenTemplate={onOpenTemplate} onUsedUp={(id) => requestRemove(id, "used")} onDiscard={(id) => requestRemove(id, "discarded")} />
                 )}
                 {/* Finishing actions — both remove the item, framed honestly:
                     "Used it up" is the win; "Discarded" is when it couldn't be saved.
@@ -2815,13 +2823,13 @@ function ScrapTracker({ scraps, addScrap, removeScrap, seedDemo, clearAll, resto
                 {status.zone !== "past" && (
                   <div className="mt-3 flex items-center gap-4 flex-wrap">
                     <button
-                      onClick={() => requestRemove(s.id)}
+                      onClick={() => requestRemove(s.id, "used")}
                       className="text-xs uppercase tracking-widest text-[var(--accent)] hover:text-[var(--ink)] underline tap"
                     >
                       Used it up
                     </button>
                     <button
-                      onClick={() => requestRemove(s.id)}
+                      onClick={() => requestRemove(s.id, "discarded")}
                       className="text-xs uppercase tracking-widest text-[var(--ink-soft)] hover:text-[var(--accent)] underline tap"
                     >
                       Discarded
@@ -2996,6 +3004,24 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
       )
     : SCRAP_TYPES.filter(t => t.category === category);
 
+  // Save whatever was typed as a custom (no-countdown) item and move to step 2.
+  const saveAsCustom = () => {
+    const customType = {
+      name: typeQuery.trim(),
+      category: "Custom",
+      locations: { fridge: 0, freezer: 0, pantry: 0 },
+      default: "fridge",
+      custom: true,
+    };
+    setType(customType);
+    setLocation("fridge");
+    setStep(2);
+  };
+  // Offer the custom path whenever the typed name isn't exactly a preset — not only
+  // at zero results. "garlic scapes" matches two garlic presets, but neither IS it.
+  const exactPreset = !!typeQ && SCRAP_TYPES.some(t => t.name.toLowerCase() === typeQ);
+  const offerCustom = typeQ.length >= 2 && !exactPreset;
+
   const handleSubmit = () => {
     onAdd({
       type: type.name,
@@ -3013,7 +3039,7 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-lg border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        className="w-full sm:max-w-lg border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col modal-sheet"
         style={{ backgroundColor: "var(--surface)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -3067,18 +3093,7 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
                       No preset types match “{typeQuery}”.
                     </p>
                     <button
-                      onClick={() => {
-                        const customType = {
-                          name: typeQuery.trim(),
-                          category: "Custom",
-                          locations: { fridge: 0, freezer: 0, pantry: 0 },
-                          default: "fridge",
-                          custom: true,
-                        };
-                        setType(customType);
-                        setLocation("fridge");
-                        setStep(2);
-                      }}
+                      onClick={saveAsCustom}
                       className="inline-flex items-center justify-center gap-2 px-4 py-2.5 border-2 border-dashed border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--surface)] transition font-semibold"
                       style={{ backgroundColor: "transparent" }}
                     >
@@ -3089,6 +3104,18 @@ function AddScrapModal({ onAdd, onClose, incModal, decModal, initialTypeQuery = 
                       Custom items don't get a storage countdown — note the date, label it, and trust your senses.
                     </p>
                   </div>
+                )}
+                {filteredTypes.length > 0 && offerCustom && (
+                  <button
+                    onClick={saveAsCustom}
+                    className="w-full text-left p-3 border-2 border-dashed border-[var(--accent)] rounded-[3px] hover:bg-[var(--surface)] transition"
+                    style={{ backgroundColor: "transparent" }}
+                  >
+                    <div className="font-display text-sm text-[var(--accent)] flex items-center gap-1.5">
+                      <Plus className="w-4 h-4" /> Save “{typeQuery.trim()}” as a custom item
+                    </div>
+                    <div className="text-xs italic text-[var(--ink-soft)] mt-0.5">No storage countdown — note the date, label it, and trust your senses.</div>
+                  </button>
                 )}
                 {filteredTypes.map(t => (
                   <button
@@ -3800,7 +3827,7 @@ function TemplateModal({ name, onClose, onBack, addToScrapbook, openDeepDive, in
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-2xl border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        className="w-full sm:max-w-2xl border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col modal-sheet"
         style={{ backgroundColor: "var(--surface)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -5200,23 +5227,6 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
         <p className="text-sm text-[var(--ink-soft)] italic">When in doubt, throw it out. Knowledge tells you what should be safe; your senses tell you what is.</p>
       </div>
 
-      {/* Temperature reference */}
-      <div className="bg-[var(--surface)] border border-[var(--ink)] rounded-[3px] p-5">
-        <div className="flex items-center gap-2 mb-3">
-          <Flame className="w-4 h-4 text-[var(--accent)]" />
-          <h4 className="font-display text-lg text-[var(--ink)]">Safe Internal Temperatures</h4>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-          {TEMP_GUIDE.map(t => (
-            <div key={t.food} className="flex items-baseline justify-between border-b border-[var(--border-40)] py-1">
-              <span className="text-[var(--ink)]">{t.food}</span>
-              <span className="font-display text-[var(--accent)] font-semibold">{t.temp}</span>
-            </div>
-          ))}
-        </div>
-        <p className="text-xs italic mt-3 text-[var(--ink-soft)]">Steaks, roasts, and chops rest at least 3 minutes after cooking.</p>
-      </div>
-
       {/* Search */}
       <SearchInput value={query} onChange={setQuery} placeholder="Search storage (parmesan, confit, freezer…)" />
 
@@ -5238,6 +5248,27 @@ function StorageTimer({ openDeepDive, onOpenTemplate }) {
           </button>
         ))}
       </div>
+
+      {/* Temperature reference — stays fully visible at rest, but steps aside while the
+          user is searching or filtering: the tab is opened in a hurry ("is this still
+          good?") and the search field used to sit under it, below the fold. */}
+      {!query.trim() && filter === "All" && (
+      <div className="bg-[var(--surface)] border border-[var(--ink)] rounded-[3px] p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <Flame className="w-4 h-4 text-[var(--accent)]" />
+          <h4 className="font-display text-lg text-[var(--ink)]">Safe Internal Temperatures</h4>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          {TEMP_GUIDE.map(t => (
+            <div key={t.food} className="flex items-baseline justify-between border-b border-[var(--border-40)] py-1">
+              <span className="text-[var(--ink)]">{t.food}</span>
+              <span className="font-display text-[var(--accent)] font-semibold">{t.temp}</span>
+            </div>
+          ))}
+        </div>
+        <p className="text-xs italic mt-3 text-[var(--ink-soft)]">Steaks, roasts, and chops rest at least 3 minutes after cooking.</p>
+      </div>
+      )}
 
       {/* Storage table */}
       <div className="space-y-2">
@@ -5328,6 +5359,27 @@ function Scrapbook({ entries, addEntry, removeEntry, loaded, incModal, decModal,
   const [sharing, setSharing] = useState(null);
   const [query, setQuery] = useState("");
 
+  // Same inline-undo pattern as the pantry: a deleted entry's card becomes a
+  // "Deleted — Undo" strip for 7 seconds before it is really removed. (It used to be a
+  // "tap again to delete" with no way back.)
+  const [pendingRemoval, setPendingRemoval] = useState({}); // id -> true
+  const removalTimers = useRef({});
+  const UNDO_MS = 7000;
+  const requestRemove = (id) => {
+    setPendingRemoval(prev => ({ ...prev, [id]: true }));
+    if (removalTimers.current[id]) clearTimeout(removalTimers.current[id]);
+    removalTimers.current[id] = setTimeout(() => {
+      removeEntry(id);
+      delete removalTimers.current[id];
+      setPendingRemoval(prev => { const next = { ...prev }; delete next[id]; return next; });
+    }, UNDO_MS);
+  };
+  const undoRemove = (id) => {
+    if (removalTimers.current[id]) { clearTimeout(removalTimers.current[id]); delete removalTimers.current[id]; }
+    setPendingRemoval(prev => { const next = { ...prev }; delete next[id]; return next; });
+  };
+  useEffect(() => () => { Object.values(removalTimers.current).forEach(clearTimeout); }, []);
+
   const sortedEntries = [...entries].sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
   const visibleEntries = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -5403,7 +5455,26 @@ function Scrapbook({ entries, addEntry, removeEntry, loaded, incModal, decModal,
       {/* Entries */}
       {visibleEntries.length > 0 && (
         <div className="space-y-3">
-          {visibleEntries.map(entry => (
+          {visibleEntries.map(entry => pendingRemoval[entry.id] ? (
+            /* Inline undo strip — sits exactly where the deleted card was */
+            <div
+              key={entry.id}
+              className="border border-dashed border-[var(--accent)] rounded-[3px] px-4 py-3 flex items-center gap-3"
+              style={{ backgroundColor: "var(--surface-alert)" }}
+              role="status"
+              aria-live="polite"
+            >
+              <span className="flex-1 text-sm text-[var(--ink-soft)] min-w-0 truncate">
+                Deleted <span className="text-[var(--ink)] font-semibold">{entry.title || entry.template || "Untitled discovery"}</span>
+              </span>
+              <button
+                onClick={() => undoRemove(entry.id)}
+                className="flex-shrink-0 text-xs uppercase tracking-widest font-bold text-[var(--accent)] hover:text-[var(--ink)] transition tap"
+              >
+                Undo
+              </button>
+            </div>
+          ) : (
             <div
               key={entry.id}
               className="border border-[var(--border)] rounded-[3px] hover:border-[var(--accent)] active:border-[var(--accent)] transition"
@@ -5465,7 +5536,7 @@ function Scrapbook({ entries, addEntry, removeEntry, loaded, incModal, decModal,
         <ScrapbookEntryModal
           entry={viewing}
           onClose={() => setViewing(null)}
-          onDelete={() => { removeEntry(viewing.id); setViewing(null); }}
+          onDelete={() => { requestRemove(viewing.id); setViewing(null); }}
           incModal={incModal}
           decModal={decModal}
           openShare={(e) => { setViewing(null); setSharing(e); }}
@@ -5522,7 +5593,7 @@ function ScrapbookAddModal({ onAdd, onClose, incModal, decModal }) {
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-lg border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        className="w-full sm:max-w-lg border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col modal-sheet"
         style={{ backgroundColor: "var(--surface)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -6394,7 +6465,7 @@ function ShareCardModal({ entry, onClose, incModal, decModal }) {
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        className="w-full sm:max-w-md border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col modal-sheet"
         style={{ backgroundColor: "var(--surface)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -6475,7 +6546,6 @@ function ShareCardModal({ entry, onClose, incModal, decModal }) {
 
 
 function ScrapbookEntryModal({ entry, onClose, onDelete, incModal, decModal, openShare, openDeepDive }) {
-  const [confirmDelete, setConfirmDelete] = useState(false);
   useEffect(() => {
     if (incModal) incModal();
     return () => { if (decModal) decModal(); };
@@ -6489,7 +6559,7 @@ function ScrapbookEntryModal({ entry, onClose, onDelete, incModal, decModal, ope
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-2xl border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        className="w-full sm:max-w-2xl border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col modal-sheet"
         style={{ backgroundColor: "var(--surface)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -6592,11 +6662,12 @@ function ScrapbookEntryModal({ entry, onClose, onDelete, incModal, decModal, ope
               </button>
             )}
             <button
-              onClick={() => { if (confirmDelete) { onDelete(); } else { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 4000); } }}
-              className={`text-xs uppercase tracking-widest underline flex items-center gap-1 ml-auto transition ${confirmDelete ? "text-[var(--accent)] font-bold" : "text-[var(--ink-soft)] hover:text-[var(--accent)]"}`}
+              onClick={onDelete}
+              className="text-xs uppercase tracking-widest underline flex items-center gap-1 ml-auto transition text-[var(--ink-soft)] hover:text-[var(--accent)] tap"
+              title="Deletes the entry; you get a few seconds to undo from the list"
             >
               <Trash2 className="w-3 h-3" />
-              {confirmDelete ? "Tap again to delete" : "Delete entry"}
+              Delete entry
             </button>
           </div>
         </div>
@@ -6630,7 +6701,7 @@ function DeepDiveModal({ ingredient, onClose, onBack, onOpenTemplate, onOpenDeep
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-2xl border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        className="w-full sm:max-w-2xl border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col modal-sheet"
         style={{ backgroundColor: "var(--surface)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -7027,8 +7098,8 @@ function SettingsModal({ theme, setTheme, textSize, setTextSize, tabOrder, setTa
       onClick={onClose}
     >
       <div
-        className="settings-panel w-full sm:max-w-md border border-[var(--ink)] rounded-[3px] shadow-2xl overflow-y-auto"
-        style={{ backgroundColor: "var(--surface)", maxHeight: "90vh", WebkitOverflowScrolling: "touch" }}
+        className="settings-panel modal-sheet w-full sm:max-w-md border border-[var(--ink)] rounded-[3px] shadow-2xl overflow-y-auto"
+        style={{ backgroundColor: "var(--surface)", WebkitOverflowScrolling: "touch" }}
         onClick={e => e.stopPropagation()}
       >
         <div
@@ -7295,7 +7366,7 @@ function ShareAppModal({ onClose, incModal, decModal }) {
       onClick={onClose}
     >
       <div
-        className="w-full sm:max-w-md border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col max-h-screen sm:max-h-[90vh]"
+        className="w-full sm:max-w-md border border-[var(--ink)] rounded-[3px] shadow-2xl flex flex-col modal-sheet"
         style={{ backgroundColor: "var(--surface)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -8259,6 +8330,11 @@ export default function App() {
            .tap-sm is for chips packed in gap-2 rows (+5px all round, so neighbours
            barely overlap). Never put .tap on an absolutely positioned element — it sets
            position: relative; give those padding instead. */
+        /* Modal sheets: cap at the DYNAMIC viewport where supported (iOS Safari's 100vh
+           is the toolbar-hidden height, so a 100vh sheet's bottom edge — Save, Build —
+           could sit under the toolbar). The vh line is the fallback for older engines. */
+        .scrap-app .modal-sheet { max-height: 100vh; max-height: 100dvh; }
+        @media (min-width: 640px) { .scrap-app .modal-sheet { max-height: 90vh; max-height: 90dvh; } }
         .scrap-app .tap, .scrap-app .tap-sm { position: relative; }
         .scrap-app .tap::before { content: ""; position: absolute; left: -8px; right: -8px; top: -14px; bottom: -14px; }
         .scrap-app .tap-sm::before { content: ""; position: absolute; inset: -5px; }

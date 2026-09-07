@@ -342,6 +342,26 @@ check("0 days → Use today text", F.formatDaysLeft(0, null).text === "Use today
 check("1 day singular", F.formatDaysLeft(1, null).text === "1 day left");
 check("weeks rounding for mid-range", /weeks left/.test(F.formatDaysLeft(45, 60).text));
 check("months rounding for long-range", /months left/.test(F.formatDaysLeft(90, null).text));
+// Warn threshold scales with the type's own shelf life (M12): a 3-day leftover added
+// today is "3 days left" in the ok tone, not orange on day zero; 1 day is always warn.
+check("warn: no shortDays → legacy 3-day threshold", F.formatDaysLeft(3, null).tone === "warn");
+check("warn: 3-day type, day 0 (3 left) → ok", F.formatDaysLeft(3, 4, 3).tone === "ok");
+check("warn: 3-day type, 2 left → warn", F.formatDaysLeft(2, 3, 3).tone === "warn");
+check("warn: 4-day type, 3 left → ok, 2 left → warn", F.formatDaysLeft(3, 6, 4).tone === "ok" && F.formatDaysLeft(2, 5, 4).tone === "warn");
+check("warn: 7-day type keeps the 3-day threshold", F.formatDaysLeft(3, 10, 7).tone === "warn" && F.formatDaysLeft(4, 11, 7).tone === "ok");
+check("warn: long types keep the 3-day threshold", F.formatDaysLeft(3, null, 90).tone === "warn");
+check("warn: 1 day left is always warn", F.formatDaysLeft(1, 2, 3).tone === "warn" && F.formatDaysLeft(1, null, 1).tone === "warn");
+check("warn: Use today is always warn", F.formatDaysLeft(0, 1, 3).tone === "warn");
+{
+  // Through enrichScrap: cooked meat stored today is not "needs soon" on day zero.
+  const today = "2026-09-07";
+  const meat = F.enrichScrap({ id: "m", type: "Cooked Meat or Poultry", location: "fridge", dateStored: today }, today);
+  check("enrich: cooked meat on day 0 → ok tone, not needsSoon", meat.tone === "ok" && meat.needsSoon === false && meat.statusText === "3 days left");
+  const meat2 = F.enrichScrap({ id: "m", type: "Cooked Meat or Poultry", location: "fridge", dateStored: "2026-09-06" }, today);
+  check("enrich: cooked meat on day 1 → warn (2 days left)", meat2.tone === "warn" && meat2.needsSoon === true);
+  const relish = F.enrichScrap({ id: "r", type: "Relishes & Sauces", location: "fridge", dateStored: today }, today);
+  check("enrich: relish (4-day) on day 0 → ok", relish.tone === "ok");
+}
 
 // ---- 12b. Custom (unknown-type) pantry items ------------------------------------
 // A custom item has no known shelf-life. It must NEVER be flagged past-prime, and it
@@ -1114,6 +1134,25 @@ check("review never fires before newsletter resolved (full sweep)", reviewTooEar
   check("short labels: none longer than 9 characters", Object.values(short).every(l => l.length <= 9));
   check("short labels: Home stays Home", short.home === "Home");
   check("nav keeps the active tab clear of the fades", /btnLeft < viewLeft \+ TAB_FADE/.test(src) && /btnRight > viewRight - TAB_FADE/.test(src));
+}
+
+// ---- 31. Deletion, modals, custom items, storage layout (source invariants) --------
+{
+  // M5: both lists use the inline undo strip; no tap-again confirm remains.
+  check("scrapbook delete has an inline undo strip", /Deleted <span[^>]*>\{entry\.title/.test(src) && /function Scrapbook\([\s\S]{0,1500}const UNDO_MS = 7000/.test(src));
+  check("no tap-again-to-delete confirm", !/Tap again to delete/.test(src) && !/confirmDelete/.test(src));
+  check("pantry undo strip echoes the verb", /pendingRemoval\[s\.id\] === "used" \? "Used up"/.test(src));
+  check("pantry finishing actions pass their verb", /requestRemove\(s\.id, "used"\)/.test(src) && /requestRemove\(s\.id, "discarded"\)/.test(src) && /requestRemove\(id, "used"\)/.test(src));
+  // M9: every modal sheet uses the dvh-capped class; no 100vh-only sheet remains.
+  check("modal sheets use .modal-sheet (dvh cap)", (src.match(/modal-sheet/g) || []).length >= 9 && !/max-h-screen sm:max-h-\[90vh\]/.test(src) && !/maxHeight: "90vh"/.test(src));
+  check("modal-sheet rule falls back from dvh to vh", /\.modal-sheet \{ max-height: 100vh; max-height: 100dvh; \}/.test(src));
+  // M11: the custom path is offered next to partial matches, not only at zero results.
+  check("custom item offered alongside partial matches", /filteredTypes\.length > 0 && offerCustom && \(/.test(src) && /const exactPreset = /.test(src));
+  // M14: search comes before the temperature card, and the card hides while searching.
+  const iSearch = src.indexOf('placeholder="Search storage'), iTemp = src.indexOf("Safe Internal Temperatures</h4>");
+  check("storage: search field precedes the temperature card", iSearch > 0 && iTemp > iSearch);
+  check("storage: temperature card steps aside while searching", /\{!query\.trim\(\) && filter === "All" && \(/.test(src));
+  check("storage: safety copy intact", /When in doubt, throw it out\. Knowledge tells you what should be safe; your senses tell you what is\./.test(src) && /Steaks, roasts, and chops rest at least 3 minutes after cooking\./.test(src));
 }
 
 console.log(`\n${pass} passed, ${fail} failed  (${pass + fail} assertions)`);

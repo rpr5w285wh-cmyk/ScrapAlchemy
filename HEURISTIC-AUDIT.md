@@ -93,7 +93,8 @@ terracotta). Screenshots: `16-pantry-demo`, `21-home-established`.
 All four High items were fixed in the follow-up commit on this branch; see the
 changelog entry "High fixes" below. M1, M2, M6 and M7 followed in the next commit
 ("Header, tab row, tap targets" below), then M3 and M4 ("Builder results and the Home
-hand-off" below).
+hand-off" below), then M5, M9, M11, M12 and M14 ("Deletion, modals, custom items,
+countdowns, storage" below). The remaining Medium items are copy (M8, M10, M13).
 
 ### 🟠 Medium
 
@@ -131,7 +132,7 @@ derivations of "what fits" is the pattern the architecture rules warn about. *Fi
 that route, pre-select the usable pantry scraps (so the count is realised on arrival),
 and compute the Home count with the same matcher.
 
-**M5 — Two deletion patterns, three controls for one action.** Pantry removal uses
+✔️ **Resolved — M5 — Two deletion patterns, three controls for one action.** Pantry removal uses
 the inline 7-second undo strip (good). A scrapbook entry uses "Tap again to delete"
 with no undo, and deleting closes the modal (`ScrapbookEntryModal`, `:6363`). On a pantry
 card, the trash icon, "Used it up" and "Discarded" all call the same `requestRemove`,
@@ -158,7 +159,7 @@ element is a dashed box starting "Or just tell a friend…". *Fix:* when zero ca
 render, swap the intro to something like "The best way to support the book is to tell
 someone about it." and drop the leading "Or". Proposed copy, for the author's edit.
 
-**M9 — Full-height modals use `100vh`.** Every modal is `max-h-screen` with
+✔️ **Resolved — M9 — Full-height modals used `100vh`.** Every modal is `max-h-screen` with
 `items-stretch` on phones. On iOS Safari `100vh` is taller than the visible viewport, so
 the bottom of a tall modal (Save to scrapbook, Build my recipe, Save to pantry) can sit
 under the toolbar and the last rows of the inner scroll may be unreachable. *Fix:*
@@ -173,14 +174,14 @@ Scrap Alchemy" while its eyebrow cites a chapter of the book (`:3847`). The stri
 book marketing, outward-facing text should carry the book's title. *Fix:* name the book
 in the share text, the story attribution, and the Support intro. Copy for the author.
 
-**M11 — "Save as a custom item" only appears at zero results.** In Add a scrap, the
+✔️ **Resolved — M11 — "Save as a custom item" only appeared at zero results.** In Add a scrap, the
 custom path (`:3029`) is offered only when the search matches nothing. A query that
 partially matches a preset ("garlic" → Raw Infused Oil, Confit Garlic) has no way to
 save "garlic scapes" without retyping something the list doesn't match. *Fix:* always
 append a "Save “q” as a custom item" row under a filtered list when there's no exact
 name match.
 
-**M12 — Short-lived types are born in warning colour.** Cooked meat (cautious end
+✔️ **Resolved — M12 — Short-lived types were born in warning colour.** Cooked meat (cautious end
 3 days) shows "3 days left" in terracotta the day it is added (`formatDaysLeft`: days ≤ 3
 → warn). Every leftover is orange on day 0, so the colour carries no information for
 that category. *Fix:* warn at `min(3, ceil(shortDays / 2))` days, or only at ≤ 1 day for
@@ -193,7 +194,7 @@ meal" (guide), while step 1 of the guide is "Stock your pantry" (already parked)
 proposals: keep the line in one place (the guide), make the Day-1 card the book's voice
 instead of the app's pitch, and point the guide CTA at the pantry to match its own step 1.
 
-**M14 — Storage & Safety leads with the temperature table; search is below the
+✔️ **Resolved — M14 — Storage & Safety led with the temperature table; search was below the
 fold.** The tab most likely to be opened in a hurry ("is this still good?") puts search
 at ~1550 px, under a 600 px temperature card, on a 4557 px page. *Fix:* search + category
 filter first, temperatures as a collapsed card ("Safe internal temperatures ›").
@@ -487,6 +488,45 @@ polish list's spirit (no change of status).
   of the production build (71 screenshots, tap-target / text-size / overflow / contrast
   measurements). QA harness unchanged at 1638 green. The "Still open" list now points at
   the new section.
+
+## Changelog — Deletion, modals, custom items, countdowns, storage (September 2026 audit, items M5/M9/M11/M12/M14)
+
+- **M5 — one deletion pattern, three honest verbs.** Deleting a scrapbook entry now
+  closes the modal and leaves a "Deleted <title> — Undo" strip where the card was
+  (7 s), the same pattern as the pantry; "Tap again to delete" is gone. On a pantry
+  card the three finishing actions keep their distinct meanings and the strip now
+  echoes the one chosen: "Used up …", "Discarded …", or "Removed …" (the trash icon,
+  relabelled "Remove from the list", is for entries added by mistake).
+- **M9 — modal sheets capped at the dynamic viewport.** All eight sheets (and the
+  Settings panel) use one `.modal-sheet` rule: `max-height: 100vh` with a `100dvh`
+  override where supported (90vh/90dvh from `sm` up), so on iOS Safari the Save /
+  Build row can't sit under the toolbar. Belt-and-braces: the `fixed inset-0`
+  backdrop already tracks the layout viewport on iOS 15+; still worth the phone check.
+- **M11 — custom items reachable beside partial matches.** In Add a scrap, once two
+  or more characters are typed and no preset has exactly that name, a dashed "Save
+  “…” as a custom item" row sits at the top of the filtered list ("garlic scapes" no
+  longer has to dodge the two garlic presets). The zero-result path is unchanged.
+- **M12 — warn threshold scales with the type.** `formatDaysLeft` takes the type's
+  cautious shelf life and warns inside the last 3 days but never for more than half
+  the range (`max(1, min(3, ceil(short / 2)))`): cooked meat added today reads
+  "3 days left" in the healthy tone and turns terracotta at 2 days; 1 day and "Use
+  today" are always warn; anything with a 6+-day range keeps the 3-day threshold.
+  `enrichScrap` remains its only caller. The Home use-soon card follows (day-zero
+  leftovers no longer "need soon").
+- **M14 — search first on Storage & Safety.** The search field and category filter
+  now come before the temperature card; the card stays fully visible at rest and
+  steps aside only while a query or category filter is active. Safety copy unchanged
+  (QA checks the two sentences verbatim).
+- QA harness 1674 → 1695: warn-threshold cases through both `formatDaysLeft` and
+  `enrichScrap`, plus source invariants for each of the five items. esbuild + Vite
+  build verified; all five checked headlessly.
+- **Verify on the phone:** Pantry → add Cooked Meat or Poultry dated today — "3 days
+  left" is sage, not orange; tap "Used it up" — the strip says "Used up …"; Scrapbook →
+  open an entry → Delete entry — the modal closes and the card becomes a "Deleted …
+  — Undo" strip; Add a scrap → type "garlic" — a dashed "Save “garlic” as a custom
+  item" row sits above the two presets; Storage — the search field is the first
+  control, type "bacon" and the temperature table steps aside; Save a discovery →
+  scroll the form to the bottom — the Save button clears the Safari toolbar.
 
 ## Changelog — Builder results and the Home hand-off (September 2026 audit, items M3/M4)
 
